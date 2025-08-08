@@ -3,11 +3,18 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import "dotenv/config";
+import * as dotenv from "dotenv";
 import Fastify from "fastify";
+import fs from "node:fs";
 import { z } from "zod";
 import { authGuard, type AuthContext } from "./core/auth.js";
 import unitsRoutes from "./modules/units/routes.js";
+
+if (fs.existsSync(".env.local")) {
+  dotenv.config({ path: ".env.local" });
+} else {
+  dotenv.config(); // falls back to .env
+}
 
 // 1) Define env schema and type first
 const envSchema = z.object({
