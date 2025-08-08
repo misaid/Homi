@@ -47,7 +47,7 @@ export default async function routes(app: FastifyInstance) {
       return reply.code(400).send({ error: findOrgErr.message });
     }
     if (Array.isArray(foundOrgs) && foundOrgs.length > 0) {
-      orgId = foundOrgs[0].id as string;
+      orgId = foundOrgs[0]?.id as string;
     }
 
     let orgsCreated = 0;
