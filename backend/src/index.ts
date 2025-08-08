@@ -132,6 +132,18 @@ await app.register(
         throw err;
       }
     }
+    try {
+      const seedModulePath = "./modules/seed/routes.js";
+      const { default: seedRoutes } = await import(seedModulePath);
+      await v1.register(seedRoutes, { prefix: "/seed" });
+    } catch (err) {
+      if (
+        (err as any)?.code !== "ERR_MODULE_NOT_FOUND" &&
+        !(err as Error)?.message?.includes("Cannot find module")
+      ) {
+        throw err;
+      }
+    }
   },
   { prefix: "/v1" }
 );

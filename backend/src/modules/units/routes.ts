@@ -1,38 +1,105 @@
 // src/modules/units/routes.ts
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
-import { supa } from "../../core/supabase.js"; // NodeNext: .js extension
-import type { AuthContext } from "../../core/auth.js"; // types only, also .js
-
-const ListQuery = z.object({
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
-});
+import { requireOrg } from "../../core/auth.js";
+import * as svc from "./service.js";
+import { ListQuery, CreateUnit, UpdateUnit } from "./schemas.js";
 
 export default async function routes(app: FastifyInstance) {
+  // List
   app.get("/", async (req, reply) => {
-    // req.auth is added by authGuard; type comes from the augmentation in auth.ts
-    const orgId = (req.auth as AuthContext | undefined)?.orgId;
-    if (!orgId) return reply.code(400).send({ error: "missing org" });
+    const need = requireOrg(req, reply);
+    if (need) return; // requireOrg already sent error
+    const orgId = req.auth!.orgId!;
+    try {
+      const result = await svc.list(orgId, req.query);
+      return result;
+    } catch (err) {
+      const message = (err as Error).message || "Failed to list units";
+      return reply.code(400).send({ error: message });
+    }
+  });
 
-    const { page, limit } = ListQuery.parse(req.query);
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+  // Create
+  app.post("/", async (req, reply) => {
+    const need = requireOrg(req, reply);
+    if (need) return;
+    const orgId = req.auth!.orgId!;
+    try {
+      // Validate early for clearer 400s
+      CreateUnit.parse(req.body);
+      const unit = await svc.create(orgId, req.body);
+      return reply.code(201).send(unit);
+    } catch (err) {
+      const message = (err as Error).message || "Failed to create unit";
+      return reply.code(400).send({ error: message });
+    }
+  });
 
-    const { data, error, count } = await supa
-      .from("units")
-      .select("*", { count: "exact" })
-      .eq("org_id", orgId)
-      .range(from, to);
+  // Get by id
+  app.get("/:id", async (req, reply) => {
+    const need = requireOrg(req, reply);
+    if (need) return;
+    const orgId = req.auth!.orgId!;
+    const id = (req.params as any).id as string;
+    try {
+      const unit = await svc.get(orgId, id);
+      return unit;
+    } catch (err) {
+      const message = (err as Error).message;
+      if (
+        message?.toLowerCase().includes("row not found") ||
+        message?.toLowerCase().includes("no rows")
+      ) {
+        return reply.code(404).send({ error: "Not found" });
+      }
+      return reply.code(400).send({ error: message || "Failed to fetch unit" });
+    }
+  });
 
-    if (error) return reply.code(500).send({ error: error.message });
+  // Update
+  app.put("/:id", async (req, reply) => {
+    const need = requireOrg(req, reply);
+    if (need) return;
+    const orgId = req.auth!.orgId!;
+    const id = (req.params as any).id as string;
+    try {
+      UpdateUnit.parse(req.body);
+      const unit = await svc.update(orgId, id, req.body);
+      return unit;
+    } catch (err) {
+      const message = (err as Error).message;
+      if (
+        message?.toLowerCase().includes("row not found") ||
+        message?.toLowerCase().includes("no rows")
+      ) {
+        return reply.code(404).send({ error: "Not found" });
+      }
+      return reply
+        .code(400)
+        .send({ error: message || "Failed to update unit" });
+    }
+  });
 
-    return {
-      items: data ?? [],
-      page,
-      limit,
-      total: count ?? 0,
-      hasMore: (count ?? 0) > to + 1,
-    };
+  // Delete
+  app.delete("/:id", async (req, reply) => {
+    const need = requireOrg(req, reply);
+    if (need) return;
+    const orgId = req.auth!.orgId!;
+    const id = (req.params as any).id as string;
+    try {
+      await svc.remove(orgId, id);
+      return reply.code(204).send();
+    } catch (err) {
+      const message = (err as Error).message;
+      if (
+        message?.toLowerCase().includes("row not found") ||
+        message?.toLowerCase().includes("no rows")
+      ) {
+        return reply.code(404).send({ error: "Not found" });
+      }
+      return reply
+        .code(400)
+        .send({ error: message || "Failed to delete unit" });
+    }
   });
 }
