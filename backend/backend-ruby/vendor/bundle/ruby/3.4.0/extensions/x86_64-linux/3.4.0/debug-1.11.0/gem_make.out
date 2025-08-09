@@ -1,0 +1,19 @@
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/debug-1.11.0/ext/debug
+/usr/bin/ruby extconf.rb
+creating Makefile
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/debug-1.11.0/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wpu7qd sitelibdir\=./.gem.20250808-450195-wpu7qd clean
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/debug-1.11.0/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wpu7qd sitelibdir\=./.gem.20250808-450195-wpu7qd
+compiling debug.c
+compiling iseq_collector.c
+linking shared-object debug/debug.so
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/debug-1.11.0/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wpu7qd sitelibdir\=./.gem.20250808-450195-wpu7qd install
+/usr/bin/install -c -m 0755 debug.so ./.gem.20250808-450195-wpu7qd/debug
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/debug-1.11.0/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wpu7qd sitelibdir\=./.gem.20250808-450195-wpu7qd clean

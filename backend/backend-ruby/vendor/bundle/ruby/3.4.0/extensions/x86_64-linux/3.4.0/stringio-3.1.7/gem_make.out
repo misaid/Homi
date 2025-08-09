@@ -1,0 +1,19 @@
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/stringio-3.1.7/ext/stringio
+/usr/bin/ruby extconf.rb
+checking for rb_io_mode_t in ruby/io.h... no
+creating Makefile
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/stringio-3.1.7/ext/stringio
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wgp6hy sitelibdir\=./.gem.20250808-450195-wgp6hy clean
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/stringio-3.1.7/ext/stringio
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wgp6hy sitelibdir\=./.gem.20250808-450195-wgp6hy
+compiling stringio.c
+linking shared-object stringio.so
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/stringio-3.1.7/ext/stringio
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wgp6hy sitelibdir\=./.gem.20250808-450195-wgp6hy install
+/usr/bin/install -c -m 0755 stringio.so ./.gem.20250808-450195-wgp6hy
+
+current directory: /home/archmo/Projects/homi/backend/backend-ruby/vendor/bundle/ruby/3.4.0/gems/stringio-3.1.7/ext/stringio
+make DESTDIR\= sitearchdir\=./.gem.20250808-450195-wgp6hy sitelibdir\=./.gem.20250808-450195-wgp6hy clean

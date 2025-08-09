@@ -1,0 +1,64 @@
+{
+  "openapi": "3.0.1",
+  "info": { "title": "Homi API", "version": "v1" },
+  "paths": {
+    "/v1/me": {
+      "get": {
+        "summary": "Current user/org",
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/units": {
+      "get": {
+        "summary": "List units",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "summary": "Create unit",
+        "responses": { "201": { "description": "created" } }
+      }
+    },
+    "/v1/units/{id}": {
+      "get": {
+        "summary": "Show unit",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "patch": {
+        "summary": "Update unit",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "summary": "Delete unit",
+        "responses": { "204": { "description": "no content" } }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ]
+    },
+    "/v1/payments": {
+      "get": {
+        "summary": "List payments",
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/payments/{id}/pay": {
+      "post": {
+        "summary": "Mark paid",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ]
+    }
+  }
+}

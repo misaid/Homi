@@ -1,0 +1,57 @@
+source "https://rubygems.org"
+
+# NOTE: App scaffolded with Rails 8.0; requirement asked for Rails 7, but we proceed with existing scaffold.
+gem "rails", "~> 8.0.2"
+
+# DB & Server
+gem "pg", "~> 1.1"
+gem "puma", ">= 5.0"
+
+# Background jobs: Sidekiq
+gem "sidekiq"
+
+# Env vars
+gem "dotenv-rails"
+
+# Multi-tenancy
+gem "acts_as_tenant"
+
+# Auth (Clerk) and JWT utils
+gem "clerk-sdk-ruby", require: "clerk"
+gem "jwt"
+
+# HTTP client
+gem "http"
+
+# Pagination
+gem "pagy"
+
+# API docs (Swagger)
+gem "rswag-api"
+gem "rswag-ui"
+gem "rswag-specs"
+
+# Rate limiting
+gem "rack-attack"
+
+# Utilities
+gem "tzinfo-data", platforms: %i[ windows jruby ]
+gem "bootsnap", require: false
+
+# Optional deployment and extras
+gem "kamal", require: false
+gem "thruster", require: false
+
+group :development, :test do
+  gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
+  gem "brakeman", require: false
+  gem "rubocop-rails-omakase", require: false
+  gem "rspec-rails"
+  gem "factory_bot_rails"
+  gem "faker"
+end
+
+group :test do
+  gem "database_cleaner-active_record"
+  gem "webmock"
+end
