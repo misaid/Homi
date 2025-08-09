@@ -11,7 +11,7 @@ class CreateCoreModels < ActiveRecord::Migration[8.0]
       t.string :role, null: false, default: "member"
       t.timestamps
     end
-    add_index :users, :org_id
+    add_index :users, :org_id, if_not_exists: true
 
     create_table :units, id: :uuid do |t|
       t.references :org, null: false, foreign_key: true, type: :uuid
@@ -22,7 +22,7 @@ class CreateCoreModels < ActiveRecord::Migration[8.0]
       t.string :cover_image_uri
       t.timestamps
     end
-    add_index :units, :org_id
+    add_index :units, :org_id, if_not_exists: true
 
     create_table :tenants, id: :uuid do |t|
       t.references :org, null: false, foreign_key: true, type: :uuid
@@ -34,8 +34,8 @@ class CreateCoreModels < ActiveRecord::Migration[8.0]
       t.references :unit, foreign_key: true, type: :uuid
       t.timestamps
     end
-    add_index :tenants, :org_id
-    add_index :tenants, :unit_id
+    add_index :tenants, :org_id, if_not_exists: true
+    add_index :tenants, :unit_id, if_not_exists: true
 
     create_table :payments, id: :uuid do |t|
       t.references :org, null: false, foreign_key: true, type: :uuid
@@ -48,8 +48,8 @@ class CreateCoreModels < ActiveRecord::Migration[8.0]
       t.text :note
       t.timestamps
     end
-    add_index :payments, :org_id
-    add_index :payments, :tenant_id
+    add_index :payments, :org_id, if_not_exists: true
+    add_index :payments, :tenant_id, if_not_exists: true
   end
 end
 

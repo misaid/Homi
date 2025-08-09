@@ -7,6 +7,11 @@ require 'webmock/rspec'
 
 Dir[Rails.root.join('spec/support/**/*.rb')].sort.each { |f| require f }
 
+# Ensure predictable env for tests
+ENV['PGUSER'] ||= 'postgres'
+ENV['API_KEY'] ||= 'dev_api_key'
+ENV['CLERK_ISSUER'] ||= 'test-issuer'
+
 WebMock.disable_net_connect!(allow_localhost: true)
 
 RSpec.configure do |config|

@@ -17,12 +17,13 @@ module V1
         payments = payments.where("due_date <= ?", to_date) if to_date
       end
       pagy_obj, records = pagy(payments.order(due_date: :asc), page: params[:page], items: params[:limit])
+      meta = pagy_metadata(pagy_obj)
       render json: {
         items: records,
-        page: pagy_obj.page,
-        limit: pagy_obj.items,
-        total: pagy_obj.count,
-        hasMore: !!pagy_obj.next
+        page: meta[:page],
+        limit: meta[:items],
+        total: meta[:count],
+        hasMore: meta[:page] < meta[:pages]
       }
     end
 

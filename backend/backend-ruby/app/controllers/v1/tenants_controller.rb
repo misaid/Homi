@@ -6,12 +6,13 @@ module V1
     def index
       tenants = Tenant.where(org_id: current_org_id)
       pagy_obj, records = pagy(tenants, page: params[:page], items: params[:limit])
+      meta = pagy_metadata(pagy_obj)
       render json: {
         items: records,
-        page: pagy_obj.page,
-        limit: pagy_obj.items,
-        total: pagy_obj.count,
-        hasMore: !!pagy_obj.next
+        page: meta[:page],
+        limit: meta[:items],
+        total: meta[:count],
+        hasMore: meta[:page] < meta[:pages]
       }
     end
 

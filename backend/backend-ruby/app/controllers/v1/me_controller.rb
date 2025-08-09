@@ -2,6 +2,7 @@ module V1
   class MeController < ApplicationController
     def show
       require_organization!
+      return if performed?
       render json: {
         user_id: current_user_id,
         session_id: current_session_id,

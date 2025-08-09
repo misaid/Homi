@@ -6,8 +6,8 @@ class ClerkAuthenticator
   def call(env)
     request = Rack::Request.new(env)
 
-    # Allow healthcheck and docs without auth
-    if request.path.start_with?("/up") || request.path.start_with?("/healthz") || request.path.start_with?("/docs") || request.path.start_with?("/api-docs")
+    # Allow healthcheck, docs, and auth stubs without auth
+    if request.path.start_with?("/up") || request.path.start_with?("/healthz") || request.path.start_with?("/docs") || request.path.start_with?("/api-docs") || request.path.start_with?("/v1/auth/")
       return @app.call(env)
     end
 
