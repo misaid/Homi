@@ -1,0 +1,45 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homi-backend-ruby
+    env_file:
+      - .env.local
+    environment:
+      RAILS_ENV: ${RAILS_ENV:-development}
+      PORT: ${PORT:-3000}
+      HOST: 0.0.0.0
+    command: ./bin/rails server -b 0.0.0.0 -p 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./log:/rails/log
+      - ./storage:/rails/storage
+    restart: unless-stopped
+    depends_on:
+      - db
+    networks:
+      - homi_net
+
+  db:
+    image: postgres:16-alpine
+    container_name: homi-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-backend_ruby_development}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Change host port to avoid conflicts with any local Postgres
+    ports:
+      - "5433:5432"
+    networks:
+      - homi_net
+
+networks:
+  homi_net:
+    driver: bridge
+
+volumes:
+  pgdata:

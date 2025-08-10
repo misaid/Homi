@@ -41,6 +41,5 @@ module BackendRuby
 
     # Middleware
     config.middleware.use Rack::Attack
-    config.middleware.use ClerkAuthenticator
   end
 end

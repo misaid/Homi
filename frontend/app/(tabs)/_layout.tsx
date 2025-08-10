@@ -1,6 +1,5 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
 import { Tabs } from "expo-router";
-import React from "react";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
@@ -11,9 +10,9 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-
   return (
     <Tabs
+      initialRouteName="home"
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
@@ -29,7 +28,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
@@ -38,11 +37,46 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="units"
         options={{
-          title: "Explore",
+          title: "Units",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <IconSymbol size={28} name="chevron.right" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="tenants"
+        options={{
+          title: "Tenants",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol
+              size={28}
+              name="chevron.left.forwardslash.chevron.right"
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="rent"
+        options={{
+          title: "Rent",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="chevron.right" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol
+              size={28}
+              name="chevron.left.forwardslash.chevron.right"
+              color={color}
+            />
           ),
         }}
       />

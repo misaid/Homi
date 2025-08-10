@@ -3,7 +3,8 @@
     "name": "homi",
     "slug": "homi",
     "extra": {
-      "API_URL": "http://localhost:3000",
+      "API_URL": "http://10.0.0.235:3000/",
+      
       "CLERK_PUBLISHABLE_KEY": "pk_test_bGl2ZS1veC02My5jbGVyay5hY2NvdW50cy5kZXYk"
     },
     "version": "1.0.0",

@@ -1,16 +1,26 @@
 // app/_layout.tsx
-import { Slot } from "expo-router";
-import { ClerkProvider } from "@clerk/clerk-expo";
-import * as SecureStore from "expo-secure-store";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
-import { StatusBar } from "expo-status-bar";
+import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import {
-  ThemeProvider,
   DarkTheme,
   DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Constants from "expo-constants";
+import {
+  Slot,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef, useState } from "react";
 import { useColorScheme } from "../hooks/useColorScheme";
+
+// Keep splash until auth state is known
+void SplashScreen.preventAutoHideAsync();
 
 const tokenCache = {
   async getToken(key: string) {
@@ -21,12 +31,53 @@ const tokenCache = {
   },
 };
 
+function AppShell() {
+  const router = useRouter();
+  const segments = useSegments();
+  const navState = useRootNavigationState();
+  const { isSignedIn, isLoaded } = useAuth();
+  const didRedirect = useRef(false);
+  const didHide = useRef(false);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!navState?.key) return;
+
+    const inAuthGroup = segments?.[0] === "(auth)";
+
+    if (!didRedirect.current) {
+      if (isSignedIn && inAuthGroup) {
+        didRedirect.current = true;
+        router.replace("/(tabs)/home");
+      } else if (!isSignedIn && !inAuthGroup) {
+        didRedirect.current = true;
+        router.replace("/(auth)/sign-in");
+      }
+    }
+
+    (async () => {
+      if (!didHide.current) {
+        await Promise.resolve();
+        try {
+          await SplashScreen.hideAsync();
+        } catch {}
+        didHide.current = true;
+      }
+    })();
+  }, [isLoaded, isSignedIn, navState?.key, segments, router]);
+
+  return <Slot />;
+}
+
 export default function RootLayout() {
   const [qc] = useState(() => new QueryClient());
   const colorScheme = useColorScheme();
 
-  const pk = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  if (!pk) console.warn("Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY");
+  const pk = Constants.expoConfig?.extra?.["CLERK_PUBLISHABLE_KEY"] as
+    | string
+    | undefined;
+  if (!pk)
+    console.warn("Missing CLERK_PUBLISHABLE_KEY in Constants.expoConfig.extra");
 
   const navTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
   const barStyle = colorScheme === "dark" ? "light" : "dark";
@@ -36,7 +87,7 @@ export default function RootLayout() {
       <QueryClientProvider client={qc}>
         <ThemeProvider value={navTheme}>
           <StatusBar style={barStyle} />
-          <Slot />
+          <AppShell />
         </ThemeProvider>
       </QueryClientProvider>
     </ClerkProvider>

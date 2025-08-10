@@ -10,10 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_01_01_000001) do
+ActiveRecord::Schema[8.0].define(version: 2025_01_01_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+
+  create_table "clerk_org_maps", id: false, force: :cascade do |t|
+    t.text "clerk_org_id", null: false
+    t.uuid "org_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["clerk_org_id"], name: "index_clerk_org_maps_on_clerk_org_id", unique: true
+    t.index ["org_id"], name: "index_clerk_org_maps_on_org_id"
+  end
 
   create_table "orgs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", null: false
@@ -71,6 +80,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_01_000001) do
     t.index ["org_id"], name: "index_users_on_org_id"
   end
 
+  add_foreign_key "clerk_org_maps", "orgs"
   add_foreign_key "payments", "orgs"
   add_foreign_key "payments", "tenants"
   add_foreign_key "tenants", "orgs"

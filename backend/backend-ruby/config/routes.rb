@@ -3,7 +3,7 @@ Rails.application.routes.draw do
 
   # Healthcheck
   get "up" => "rails/health#show", as: :rails_health_check
-  get "healthz", to: proc { [200, { "Content-Type" => "application/json" }, [{ ok: true }.to_json]] }
+  get "api/healthz", to: "api/health#show"
 
   # Sidekiq Web (optional, protect via env basic auth when set)
   if ENV["SIDEKIQ_USER"].present? && ENV["SIDEKIQ_PASSWORD"].present?
@@ -14,24 +14,11 @@ Rails.application.routes.draw do
   end
   mount Sidekiq::Web => "/sidekiq"
 
-  namespace :v1 do
-    # Auth stubs
-    post "auth/register", to: "auth#register"
-    post "auth/login", to: "auth#login"
-
-    # Me
-    get "me", to: "me#show"
-
-    resources :units
-    resources :tenants
-    resources :payments, only: %i[index show create update destroy] do
-      member do
-        post :pay
-      end
+  namespace :api do
+    scope "/v1" do
+      get "/me", to: "me#show"
+      resources :units
     end
-
-    post "seed", to: "seed#create"
-    post "upload", to: "upload#create"
   end
 
   # Swagger docs
