@@ -31,6 +31,13 @@ const schema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v === "" ? undefined : v)),
+  rent_amount: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => v === "" || !Number.isNaN(Number(v)), {
+      message: "Must be a number",
+    }),
   lease_start: z
     .string()
     .optional()
@@ -83,6 +90,7 @@ export default function NewTenantScreen() {
       full_name: "",
       email: "",
       phone: "",
+      rent_amount: "",
       lease_start: "",
       lease_end: "",
       unit_id: (unitIdParam as string) || "",
@@ -103,14 +111,32 @@ export default function NewTenantScreen() {
         lease_start: values.lease_start,
         lease_end: values.lease_end,
         unit_id: values.unit_id,
+        rent_amount:
+          values.rent_amount && String(values.rent_amount).trim() !== ""
+            ? Number(values.rent_amount)
+            : undefined,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.tenants() });
+      await queryClient.invalidateQueries({ queryKey: ["payments"] });
+      await queryClient.invalidateQueries({ queryKey: ["payments", "due"] });
+      // units may change occupancy counts
       await queryClient.invalidateQueries({ queryKey: qk.units() });
       try {
-        router.replace("/(tabs)/tenants");
-      } catch {
+        // small toast
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const RN = require("react-native");
+        if (RN.Platform.OS === "android") {
+          RN.ToastAndroid?.show(
+            "Schedule will be generated automatically",
+            RN.ToastAndroid.SHORT
+          );
+        } else {
+          RN.Alert?.alert("", "Schedule will be generated automatically");
+        }
         router.back();
+      } catch {
+        router.replace("/(tabs)/tenants");
       }
     },
   });
@@ -183,6 +209,29 @@ export default function NewTenantScreen() {
             />
           )}
         />
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>Rent amount (optional)</Text>
+        <Controller
+          control={control}
+          name="rent_amount"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[styles.input, errors.rent_amount && styles.inputError]}
+              placeholder="e.g. 1200"
+              keyboardType="numeric"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={(value as string) ?? ""}
+            />
+          )}
+        />
+        {errors.rent_amount && (
+          <Text style={styles.errorText}>
+            {(errors.rent_amount.message as string) ?? ""}
+          </Text>
+        )}
       </View>
 
       <View style={styles.field}>

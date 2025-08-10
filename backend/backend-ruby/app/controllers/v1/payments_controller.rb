@@ -5,9 +5,9 @@ module V1
 
     def index
       payments = Payment.where(org_id: current_org_id)
-      if params[:status].present?
-        payments = payments.where(status: params[:status])
-      end
+      payments = payments.where(status: params[:status]) if params[:status].present?
+      payments = payments.where(tenant_id: params[:tenant_id]) if params[:tenant_id].present?
+
       if params[:from].present?
         from_date = Date.parse(params[:from]) rescue nil
         payments = payments.where("due_date >= ?", from_date) if from_date
@@ -16,7 +16,9 @@ module V1
         to_date = Date.parse(params[:to]) rescue nil
         payments = payments.where("due_date <= ?", to_date) if to_date
       end
-      pagy_obj, records = pagy(payments.order(due_date: :asc), page: params[:page], items: params[:limit])
+
+      sort_direction = params[:status] == "paid" ? :desc : :asc
+      pagy_obj, records = pagy(payments.order(due_date: sort_direction), page: params[:page], items: params[:limit])
       meta = pagy_metadata(pagy_obj)
       render json: {
         items: records,

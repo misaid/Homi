@@ -9,6 +9,9 @@ import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,9 +53,13 @@ export default function UnitDetailScreen() {
   });
 
   const tenantsQuery = useQuery<Paginated<Tenant>, Error>({
-    queryKey: qk.tenants(1, 20),
+    queryKey: qk.tenants(1, 1000),
     queryFn: () =>
-      api.get<Paginated<Tenant>>(`/api/v1/tenants?page=1&limit=20`),
+      api.get<Paginated<Tenant>>(
+        `/api/v1/tenants?page=1&limit=1000&unit_id=${encodeURIComponent(
+          unitId
+        )}`
+      ),
   });
 
   const tenants = useMemo(
@@ -104,6 +111,14 @@ export default function UnitDetailScreen() {
   });
 
   const onDelete = () => {
+    if (Platform.OS === "web") {
+      // Web Alert only supports a single OK button; use confirm for two-step UX
+      // eslint-disable-next-line no-alert
+      const confirmed =
+        typeof window !== "undefined" && window.confirm("Delete this unit?");
+      if (confirmed) deleteMutation.mutate();
+      return;
+    }
     Alert.alert("Delete Unit", "Are you sure you want to delete this unit?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -113,6 +128,46 @@ export default function UnitDetailScreen() {
       },
     ]);
   };
+
+  // Payments modal hooks must be declared before any early returns to preserve hook order
+  type Payment = {
+    id: string;
+    amount: number;
+    due_date: string;
+    status?: string;
+  };
+  type PaymentsResponse = {
+    items: Payment[];
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+
+  const [paymentsTenant, setPaymentsTenant] = useState<Tenant | null>(null);
+  const paymentsQueryKey = [
+    "payments",
+    "tenant",
+    paymentsTenant?.id ?? "",
+    "due",
+  ] as const;
+  const paymentsQuery = useQuery<PaymentsResponse, Error>({
+    queryKey: paymentsQueryKey,
+    queryFn: () =>
+      api.get<PaymentsResponse>(
+        `/api/v1/payments?tenant_id=${paymentsTenant?.id}&status=due`
+      ),
+    enabled: !!paymentsTenant?.id,
+  });
+
+  const markPaid = useMutation<unknown, Error, string>({
+    mutationFn: (paymentId) => api.post(`/api/v1/payments/${paymentId}/pay`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: paymentsQueryKey });
+      await queryClient.invalidateQueries({ queryKey: ["payments"] });
+      await queryClient.invalidateQueries({ queryKey: ["payments", "due"] });
+    },
+  });
 
   if (unitQuery.isPending) {
     return (
@@ -309,13 +364,94 @@ export default function UnitDetailScreen() {
         <View style={styles.list}>
           {tenants.map((t) => (
             <View key={t.id} style={styles.listItem}>
-              <Text style={styles.tenantName}>{t.full_name}</Text>
-              {!!t.email && <Text style={styles.tenantSub}>{t.email}</Text>}
-              {!!t.phone && <Text style={styles.tenantSub}>{t.phone}</Text>}
+              <View style={styles.rowBetween}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tenantName}>{t.full_name}</Text>
+                  {!!t.email && <Text style={styles.tenantSub}>{t.email}</Text>}
+                  {!!t.phone && <Text style={styles.tenantSub}>{t.phone}</Text>}
+                </View>
+                <Pressable
+                  style={[styles.button, styles.btnPrimary]}
+                  onPress={() => setPaymentsTenant(t)}
+                >
+                  <Text style={[styles.btnText, styles.btnPrimaryText]}>
+                    View payments
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           ))}
         </View>
       )}
+
+      <Modal
+        visible={!!paymentsTenant}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPaymentsTenant(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.modalTitle}>
+                {paymentsTenant?.full_name}'s payments
+              </Text>
+              <Pressable
+                onPress={() => setPaymentsTenant(null)}
+                style={[styles.button, styles.btnSecondary]}
+              >
+                <Text style={[styles.btnText, styles.btnSecondaryText]}>
+                  Close
+                </Text>
+              </Pressable>
+            </View>
+
+            {paymentsQuery.isPending ? (
+              <View style={[styles.center, { paddingVertical: 20 }]}>
+                <ActivityIndicator />
+              </View>
+            ) : paymentsQuery.isError ? (
+              <Text style={styles.errorText}>
+                {paymentsQuery.error.message}
+              </Text>
+            ) : (
+              <FlatList
+                data={paymentsQuery.data?.items ?? []}
+                keyExtractor={(p) => p.id}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                renderItem={({ item: p }) => (
+                  <View style={styles.paymentItem}>
+                    <View>
+                      <Text style={styles.paymentDate}>
+                        {p.due_date?.slice(0, 10)}
+                      </Text>
+                      <Text style={styles.paymentAmount}>
+                        ${p.amount?.toFixed(2)}
+                      </Text>
+                    </View>
+                    {(!p.status || p.status === "due") && (
+                      <Pressable
+                        onPress={() => markPaid.mutate(p.id)}
+                        disabled={markPaid.isPending}
+                        style={[styles.button, styles.btnPrimary]}
+                      >
+                        <Text style={[styles.btnText, styles.btnPrimaryText]}>
+                          {markPaid.isPending ? "Working" : "Mark paid"}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+                ListEmptyComponent={() => (
+                  <View style={[styles.center, { paddingVertical: 10 }]}>
+                    <Text style={styles.muted}>No due payments</Text>
+                  </View>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -374,6 +510,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e0e0e0",
   },
+  rowBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
   tenantName: { fontWeight: "700" },
   tenantSub: { color: "#444" },
   button: {
@@ -400,4 +542,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: { fontSize: 16, fontWeight: "700" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    maxHeight: "70%",
+  },
+  modalTitle: { fontSize: 16, fontWeight: "700" },
+  paymentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#eee",
+  },
+  paymentDate: { fontSize: 12, color: "#666" },
+  paymentAmount: { fontSize: 16, fontWeight: "700" },
 });

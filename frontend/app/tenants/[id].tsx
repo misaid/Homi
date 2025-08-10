@@ -3,11 +3,13 @@ import { qk } from "@/lib/queryKeys";
 import type { Paginated, Tenant, Unit } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +32,13 @@ const detailsSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v === "" ? undefined : v)),
+  rent_amount: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => v === "" || !Number.isNaN(Number(v)), {
+      message: "Must be a number",
+    }),
   lease_start: z
     .string()
     .optional()
@@ -50,6 +59,7 @@ export default function TenantDetailScreen() {
   const tenantId = String(id);
   const api = useApi();
   const qc = useQueryClient();
+  const router = useRouter();
   const [isChangingUnit, setIsChangingUnit] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<string | "">("");
 
@@ -85,6 +95,10 @@ export default function TenantDetailScreen() {
       reset({
         email: t.email ?? "",
         phone: t.phone ?? t.phone_number ?? t.phoneNumber ?? "",
+        rent_amount:
+          t.rent_amount ?? t.rentAmount
+            ? String(t.rent_amount ?? t.rentAmount)
+            : "",
         lease_start: t.lease_start ?? t.leaseStart ?? "",
         lease_end: t.lease_end ?? t.leaseEnd ?? "",
       });
@@ -98,7 +112,21 @@ export default function TenantDetailScreen() {
       await qc.invalidateQueries({ queryKey: qk.tenants() });
       await qc.invalidateQueries({ queryKey: qk.units() });
       await qc.invalidateQueries({ queryKey: qk.tenant(tenantId) });
+      await qc.invalidateQueries({ queryKey: ["payments"] });
+      await qc.invalidateQueries({ queryKey: ["payments", "due"] });
       setIsChangingUnit(false);
+      // small toast + navigate back
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const RN = require("react-native");
+      if (RN.Platform.OS === "android") {
+        RN.ToastAndroid?.show(
+          "Schedule will be generated automatically",
+          RN.ToastAndroid.SHORT
+        );
+      } else {
+        RN.Alert?.alert("", "Schedule will be generated automatically");
+      }
+      router.back();
     },
   });
 
@@ -109,12 +137,66 @@ export default function TenantDetailScreen() {
         phone: values.phone,
         lease_start: values.lease_start,
         lease_end: values.lease_end,
+        rent_amount:
+          values.rent_amount && String(values.rent_amount).trim() !== ""
+            ? Number(values.rent_amount)
+            : undefined,
       }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.tenants() });
       await qc.invalidateQueries({ queryKey: qk.tenant(tenantId) });
+      await qc.invalidateQueries({ queryKey: ["payments"] });
+      await qc.invalidateQueries({ queryKey: ["payments", "due"] });
+      // small toast
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const RN = require("react-native");
+      if (RN.Platform.OS === "android") {
+        RN.ToastAndroid?.show(
+          "Schedule will be generated automatically",
+          RN.ToastAndroid.SHORT
+        );
+      } else {
+        RN.Alert?.alert("", "Schedule will be generated automatically");
+      }
+      router.back();
     },
   });
+
+  const deleteTenant = useMutation<unknown, Error, void>({
+    mutationFn: async () => api.del(`/api/v1/tenants/${tenantId}`),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.tenants() });
+      await qc.invalidateQueries({ queryKey: ["payments"] });
+      await qc.invalidateQueries({ queryKey: ["payments", "due"] });
+      try {
+        router.replace("/(tabs)/tenants");
+      } catch {
+        router.back();
+      }
+    },
+  });
+
+  const onDeleteTenant = () => {
+    if (Platform.OS === "web") {
+      // eslint-disable-next-line no-alert
+      const confirmed =
+        typeof window !== "undefined" && window.confirm("Delete this tenant?");
+      if (confirmed) deleteTenant.mutate();
+      return;
+    }
+    Alert.alert(
+      "Delete Tenant",
+      "Are you sure you want to delete this tenant?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteTenant.mutate(),
+        },
+      ]
+    );
+  };
 
   if (tenantQuery.isPending) {
     return (
@@ -168,6 +250,14 @@ export default function TenantDetailScreen() {
           >
             <Text style={[styles.btnText, styles.btnSecondaryText]}>
               {isChangingUnit ? "Cancel" : "Change unit"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.button, styles.btnDanger]}
+            onPress={onDeleteTenant}
+          >
+            <Text style={[styles.btnText, styles.btnDangerText]}>
+              {deleteTenant.isPending ? "Deleting..." : "Delete"}
             </Text>
           </Pressable>
         </View>
@@ -259,6 +349,28 @@ export default function TenantDetailScreen() {
               />
             )}
           />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Rent amount (optional)</Text>
+          <Controller
+            control={control}
+            name="rent_amount"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={[styles.input, errors.rent_amount && styles.inputError]}
+                placeholder="e.g. 1200"
+                keyboardType="numeric"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={(value as string) ?? ""}
+              />
+            )}
+          />
+          {errors.rent_amount && (
+            <Text style={styles.errorText}>
+              {(errors.rent_amount.message as string) ?? ""}
+            </Text>
+          )}
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>Lease start (YYYY-MM-DD)</Text>
@@ -400,4 +512,6 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
   },
   btnSecondaryText: { color: "#222", fontWeight: "700" },
+  btnDanger: { backgroundColor: "#b00020" },
+  btnDangerText: { color: "#fff", fontWeight: "700" },
 });

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_01_01_010000) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_10_215423) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -28,6 +28,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_01_010000) do
     t.string "name", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "owner_user_id"
+    t.index ["owner_user_id"], name: "index_orgs_on_owner_user_id", unique: true
   end
 
   create_table "payments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -42,6 +44,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_01_010000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["org_id"], name: "index_payments_on_org_id"
+    t.index ["tenant_id", "due_date"], name: "idx_payments_unique_tenant_month", unique: true
     t.index ["tenant_id"], name: "index_payments_on_tenant_id"
   end
 
@@ -55,6 +58,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_01_01_010000) do
     t.uuid "unit_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "rent_amount", precision: 10, scale: 2
     t.index ["org_id"], name: "index_tenants_on_org_id"
     t.index ["unit_id"], name: "index_tenants_on_unit_id"
   end

@@ -29,16 +29,43 @@
       },
       "delete": {
         "summary": "Delete unit",
-        "responses": { "204": { "description": "no content" } }
-      },
-      "parameters": [
-        {
-          "name": "id",
-          "in": "path",
-          "required": true,
-          "schema": { "type": "string" }
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "If true, detach tenants (set unit_id to null) before deletion"
+          }
+        ],
+        "responses": {
+          "204": { "description": "no content" },
+          "409": {
+            "description": "conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "unit_has_tenants"
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["error", "message"]
+                }
+              }
+            }
+          }
         }
-      ]
+      }
     },
     "/v1/payments": {
       "get": {

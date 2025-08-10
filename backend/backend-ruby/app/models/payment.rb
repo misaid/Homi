@@ -6,6 +6,8 @@ class Payment < ApplicationRecord
   enum :method, { cash: "cash", transfer: "transfer", other: "other" }, validate: false
 
   scope :between, ->(from, to) { where(due_date: from..to) }
+
+  validates :tenant_id, :due_date, :amount, presence: true
 end
 
 
