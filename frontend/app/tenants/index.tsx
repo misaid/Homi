@@ -15,10 +15,16 @@ import { useApi } from "../../lib/api";
 
 type Tenant = {
   id: string;
-  full_name: string;
+  full_name?: string | null;
+  fullName?: string | null;
+  phone?: string | null;
+  phone_number?: string | null;
+  phoneNumber?: string | null;
   email?: string | null;
   lease_start?: string | null;
+  leaseStart?: string | null;
   lease_end?: string | null;
+  leaseEnd?: string | null;
 };
 
 type TenantsResponse = {
@@ -121,14 +127,21 @@ export default function TenantsScreen() {
 }
 
 function TenantRow({ tenant }: { tenant: Tenant }) {
+  const name = tenant.fullName ?? tenant.full_name ?? "-";
+  const phone =
+    tenant.phone ?? tenant.phone_number ?? tenant.phoneNumber ?? null;
+  const email = tenant.email ?? null;
+  const leaseStart = tenant.leaseStart ?? tenant.lease_start ?? null;
+  const leaseEnd = tenant.leaseEnd ?? tenant.lease_end ?? null;
   return (
     <View style={styles.row}>
       <View style={styles.rowHeader}>
-        <Text style={styles.name}>{tenant.full_name}</Text>
-        {!!tenant.email && <Text style={styles.email}>{tenant.email}</Text>}
+        <Text style={styles.name}>{name}</Text>
+        {!!email && <Text style={styles.email}>{email}</Text>}
       </View>
+      {!!phone && <Text style={styles.phone}>{phone}</Text>}
       <Text style={styles.lease}>
-        {formatDate(tenant.lease_start)} → {formatDate(tenant.lease_end)}
+        {formatDate(leaseStart)} → {formatDate(leaseEnd)}
       </Text>
     </View>
   );
@@ -181,6 +194,11 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 12,
     color: "#6b7280",
+  },
+  phone: {
+    fontSize: 12,
+    color: "#374151",
+    marginBottom: 2,
   },
   lease: {
     fontSize: 13,

@@ -17,7 +17,27 @@ Rails.application.routes.draw do
   namespace :api do
     scope "/v1" do
       get "/me", to: "me#show"
+      if Rails.env.development?
+        get "/debug/auth", to: "debug#auth"
+      end
+    end
+
+    # Backward compatible API under /api/v1 mapped to V1 controllers
+    scope "/v1", module: "v1", as: "v1" do
       resources :units
+      resources :tenants
+      resources :payments do
+        post :pay, on: :member
+      end
+    end
+  end
+
+  # Versioned public API without the /api prefix
+  namespace :v1 do
+    resources :units
+    resources :tenants
+    resources :payments do
+      post :pay, on: :member
     end
   end
 

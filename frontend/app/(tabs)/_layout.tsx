@@ -1,9 +1,9 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
-import { IconSymbol } from "@/components/ui/IconSymbol";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -13,7 +13,7 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="home"
-      screenOptions={{
+      screenOptions={({ route }) => ({
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarButton: HapticTab,
@@ -25,59 +25,56 @@ export default function TabLayout() {
           },
           default: {},
         }),
-      }}
+        tabBarIcon: ({ color, focused, size }) => {
+          const iconMap: Record<string, string> = {
+            home: "home",
+            units: "business",
+            tenants: "people",
+            rent: "card",
+            settings: "settings",
+          };
+          const baseName = iconMap[route.name] ?? "ellipse";
+          const name = focused ? baseName : `${baseName}-outline`;
+          const iconSize = typeof size === "number" ? size : 28;
+          return (
+            <Ionicons
+              name={name as any}
+              size={iconSize}
+              color={color}
+              style={{ opacity: focused ? 1 : 0.8 }}
+            />
+          );
+        },
+      })}
     >
       <Tabs.Screen
         name="home"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
-          ),
         }}
       />
       <Tabs.Screen
         name="units"
         options={{
           title: "Units",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="chevron.right" color={color} />
-          ),
         }}
       />
       <Tabs.Screen
         name="tenants"
         options={{
           title: "Tenants",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={28}
-              name="chevron.left.forwardslash.chevron.right"
-              color={color}
-            />
-          ),
         }}
       />
       <Tabs.Screen
         name="rent"
         options={{
           title: "Rent",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="chevron.right" color={color} />
-          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={28}
-              name="chevron.left.forwardslash.chevron.right"
-              color={color}
-            />
-          ),
         }}
       />
     </Tabs>

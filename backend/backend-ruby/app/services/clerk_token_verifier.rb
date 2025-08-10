@@ -15,7 +15,8 @@ class ClerkTokenVerifier
     raise ArgumentError, "issuer required" if @issuer.blank?
   end
 
-  def verify!(token)
+  # Decodes and validates a Clerk SESSION token and returns a symbolized payload
+  def decode!(token)
     raise Unauthorized, "token missing" if token.blank?
 
     payload, _header = JWT.decode(
@@ -30,10 +31,25 @@ class ClerkTokenVerifier
       aud: @audience
     )
 
-    deep_symbolize(payload)
-  rescue JWT::DecodeError, StandardError => e
+    payload = deep_symbolize(payload)
+    # Require Clerk session tokens (sid present)
+    sid = payload[:sid]
+    raise Unauthorized, "token is not a session token" if sid.blank?
+    payload
+  rescue JWT::InvalidIssuerError
+    raise Unauthorized, "invalid issuer"
+  rescue JWT::ExpiredSignature
+    raise Unauthorized, "token expired"
+  rescue JWT::ImmatureSignature
+    raise Unauthorized, "token not yet valid"
+  rescue JWT::VerificationError
+    raise Unauthorized, "signature verification failed"
+  rescue JWT::DecodeError => e
     raise Unauthorized, "invalid token: #{e.message}"
   end
+
+  # Backward compatibility
+  alias verify! decode!
 
   private
 
