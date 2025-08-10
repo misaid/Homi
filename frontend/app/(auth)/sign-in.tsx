@@ -1,5 +1,5 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
-import { useAuth, useSignIn } from "@clerk/clerk-expo";
+import { useAuth, useClerk, useSignIn } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -14,7 +14,8 @@ import {
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { isSignedIn, isLoaded, setActive } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
+  const { setActive } = useClerk();
   const { signIn, isLoaded: isSignInLoaded } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,12 +46,35 @@ export default function SignInScreen() {
       if (res.status === "complete" && res.createdSessionId) {
         await setActive?.({ session: res.createdSessionId });
         router.replace("/(tabs)/home");
+        // Fallbacks to ensure navigation takes effect immediately
+        setTimeout(() => {
+          try {
+            router.replace("/(tabs)/home");
+          } catch {}
+        }, 0);
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            try {
+              if (window.location) window.location.assign("/");
+            } catch {}
+          }, 400);
+        }
         return;
       }
       setError("Sign in not complete. Try again.");
     } catch (e: any) {
       const msg: string = e?.errors?.[0]?.message || e?.message || String(e);
-      if (msg.includes("Couldn't find your account")) {
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes("not yet valid") ||
+        lower.includes("issued in the future") ||
+        lower.includes("clock skew") ||
+        lower.includes("not valid yet")
+      ) {
+        setError(
+          "Your device time may be incorrect. Enable automatic date and time, then try again."
+        );
+      } else if (msg.includes("Couldn't find your account")) {
         setError("We couldn't find that account. You can create one.");
       } else {
         setError(msg);

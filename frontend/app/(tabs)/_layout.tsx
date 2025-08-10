@@ -1,6 +1,7 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import { useAuth } from "@clerk/clerk-expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs, useRouter } from "expo-router";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
@@ -10,6 +11,11 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
   return (
     <Tabs
       initialRouteName="home"
@@ -57,12 +63,14 @@ export default function TabLayout() {
         name="units"
         options={{
           title: "Units",
+          headerShown: true,
         }}
       />
       <Tabs.Screen
         name="tenants"
         options={{
           title: "Tenants",
+          headerShown: true,
         }}
       />
       <Tabs.Screen

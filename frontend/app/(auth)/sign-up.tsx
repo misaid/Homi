@@ -64,6 +64,18 @@ export default function SignUpScreen() {
           await setActive({ session: sessionId });
         }
         router.replace("/(tabs)/home");
+        setTimeout(() => {
+          try {
+            router.replace("/(tabs)/home");
+          } catch {}
+        }, 0);
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            try {
+              if (window.location) window.location.assign("/");
+            } catch {}
+          }, 400);
+        }
         return;
       }
       setError("Verification not complete. Check the code and try again.");
@@ -79,9 +91,30 @@ export default function SignUpScreen() {
           if (sid && setActive) {
             await setActive({ session: sid });
             router.replace("/(tabs)/home");
+            setTimeout(() => {
+              try {
+                router.replace("/(tabs)/home");
+              } catch {}
+            }, 0);
+            if (typeof window !== "undefined") {
+              setTimeout(() => {
+                try {
+                  if (window.location) window.location.assign("/");
+                } catch {}
+              }, 400);
+            }
             return;
           }
         } catch {}
+      } else if (
+        msg.toLowerCase().includes("not yet valid") ||
+        msg.toLowerCase().includes("issued in the future") ||
+        msg.toLowerCase().includes("clock skew") ||
+        msg.toLowerCase().includes("not valid yet")
+      ) {
+        setError(
+          "Your device time may be incorrect. Enable automatic date and time, then try again."
+        );
       }
       setError(msg);
     } finally {

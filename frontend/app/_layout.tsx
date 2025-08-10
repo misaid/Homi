@@ -36,7 +36,6 @@ function AppShell() {
   const segments = useSegments();
   const navState = useRootNavigationState();
   const { isSignedIn, isLoaded } = useAuth();
-  const didRedirect = useRef(false);
   const didHide = useRef(false);
 
   useEffect(() => {
@@ -44,15 +43,10 @@ function AppShell() {
     if (!navState?.key) return;
 
     const inAuthGroup = segments?.[0] === "(auth)";
-
-    if (!didRedirect.current) {
-      if (isSignedIn && inAuthGroup) {
-        didRedirect.current = true;
-        router.replace("/(tabs)/home");
-      } else if (!isSignedIn && !inAuthGroup) {
-        didRedirect.current = true;
-        router.replace("/(auth)/sign-in");
-      }
+    if (isSignedIn && inAuthGroup) {
+      router.replace("/(tabs)/home");
+    } else if (!isSignedIn && !inAuthGroup) {
+      router.replace("/(auth)/sign-in");
     }
 
     (async () => {
@@ -65,6 +59,8 @@ function AppShell() {
       }
     })();
   }, [isLoaded, isSignedIn, navState?.key, segments, router]);
+
+  if (!isLoaded) return null;
 
   return <Slot />;
 }

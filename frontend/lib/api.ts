@@ -8,24 +8,39 @@ const BASE_URL: string | undefined =
   "http://localhost:3000";
 
 export function useApi() {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
 
+  /**
+   * Perform an HTTP request to the Rails API.
+   * Callers should pass full API paths that begin with '/api/v1/...'.
+   */
   async function request<T = unknown>(
     path: string,
     init: RequestInit = {}
   ): Promise<T> {
-    const token = await getToken();
     const body = (init as any).body;
     const isFormData =
       typeof FormData !== "undefined" && body instanceof FormData;
-    const res = await fetch(`${BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        ...(isFormData ? {} : { "Content-Type": "application/json" }),
-        ...(init.headers || ({} as any)),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
+
+    const doFetch = async (maybeToken: string | null) =>
+      fetch(`${BASE_URL}${path}`, {
+        ...init,
+        headers: {
+          ...(isFormData ? {} : { "Content-Type": "application/json" }),
+          ...(init.headers || ({} as any)),
+          ...(maybeToken ? { Authorization: `Bearer ${maybeToken}` } : {}),
+        },
+      });
+
+    // First attempt
+    let token = await getToken();
+    let res = await doFetch(token ?? null);
+
+    // Single soft retry on 401 when signed in
+    if (res.status === 401 && isSignedIn) {
+      token = await getToken();
+      res = await doFetch(token ?? null);
+    }
 
     const text = await res.text();
     let data: any = null;

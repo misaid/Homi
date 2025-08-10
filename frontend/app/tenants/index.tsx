@@ -1,85 +1,55 @@
-// app/tenants/index.tsx
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useApi } from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
+import type { Paginated, Tenant, Unit } from "@/lib/types";
+import { useAuth } from "@clerk/clerk-expo";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
-  Button,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useApi } from "../../lib/api";
-
-type Tenant = {
-  id: string;
-  full_name?: string | null;
-  fullName?: string | null;
-  phone?: string | null;
-  phone_number?: string | null;
-  phoneNumber?: string | null;
-  email?: string | null;
-  lease_start?: string | null;
-  leaseStart?: string | null;
-  lease_end?: string | null;
-  leaseEnd?: string | null;
-};
-
-type TenantsResponse = {
-  items: Tenant[];
-  page: number;
-  limit: number;
-  total: number;
-  hasMore: boolean;
-};
-
-const PAGE_SIZE = 20;
 
 export default function TenantsScreen() {
   const api = useApi();
+  const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
 
-  const fetchPage = useCallback(
-    async ({ pageParam }: { pageParam: number }): Promise<TenantsResponse> => {
-      return api.get<TenantsResponse>(
-        `/v1/tenants?page=${pageParam}&limit=${PAGE_SIZE}`
-      );
-    },
-    [api]
-  );
-
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isRefetching,
-  } = useInfiniteQuery({
-    queryKey: ["tenants", PAGE_SIZE],
-    queryFn: fetchPage,
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.page + 1 : undefined,
+  const tenantsQuery = useQuery<Paginated<Tenant>, Error>({
+    queryKey: qk.tenants(1, 20),
+    queryFn: () =>
+      api.get<Paginated<Tenant>>(`/api/v1/tenants?page=1&limit=20`),
+    enabled: isLoaded && isSignedIn,
   });
 
-  const tenants = useMemo(() => {
-    return data?.pages.flatMap((p) => p.items) ?? [];
-  }, [data]);
+  const unitsQuery = useQuery<Paginated<Unit>, Error>({
+    queryKey: qk.units(1, 100),
+    queryFn: () => api.get<Paginated<Unit>>(`/api/v1/units?page=1&limit=100`),
+    enabled: isLoaded && isSignedIn,
+  });
 
+  const tenants = tenantsQuery.data?.items ?? [];
+  const unitNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    (unitsQuery.data?.items ?? []).forEach((u) =>
+      map.set(String(u.id), u.name)
+    );
+    return map;
+  }, [unitsQuery.data]);
+
+  const isRefetching = tenantsQuery.isRefetching || unitsQuery.isRefetching;
   const onRefresh = useCallback(() => {
-    return refetch();
-  }, [refetch]);
+    tenantsQuery.refetch();
+    unitsQuery.refetch();
+  }, [tenantsQuery, unitsQuery]);
 
-  const onEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  if (isLoading && tenants.length === 0) {
+  if (tenantsQuery.isPending && tenants.length === 0) {
     return (
       <View style={styles.center}>
         <ActivityIndicator />
@@ -88,68 +58,112 @@ export default function TenantsScreen() {
     );
   }
 
-  if (isError && tenants.length === 0) {
+  if (tenantsQuery.isError && tenants.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>
-          {(error as Error)?.message || "Failed to load tenants"}
-        </Text>
-        <Button title="Retry" onPress={() => refetch()} />
+        <Text style={styles.errorText}>{tenantsQuery.error.message}</Text>
+        <Pressable
+          onPress={() => tenantsQuery.refetch()}
+          style={styles.retryBtn}
+        >
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={tenants}
-      keyExtractor={(item) => String(item.id)}
-      contentContainerStyle={tenants.length === 0 ? styles.flexGrow : undefined}
-      refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />
-      }
-      ListEmptyComponent={
-        <View style={styles.center}>
-          <Text style={styles.muted}>No tenants found</Text>
-        </View>
-      }
-      renderItem={({ item }) => <TenantRow tenant={item} />}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.5}
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={styles.footer}>
-            <ActivityIndicator />
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={tenants}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={
+          tenants.length === 0 ? styles.flexGrow : undefined
+        }
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={() => (
+          <View style={styles.center}>
+            <Text style={styles.muted}>No tenants found</Text>
           </View>
-        ) : null
-      }
-    />
+        )}
+        renderItem={({ item }) => (
+          <TenantRow
+            tenant={item}
+            unitName={
+              item.unit_id
+                ? unitNameById.get(String(item.unit_id)) ?? "Unassigned"
+                : "Unassigned"
+            }
+            onPress={() =>
+              (router as any).push({
+                pathname: "/tenants/[id]",
+                params: { id: String(item.id) },
+              })
+            }
+            onAssign={() =>
+              (router as any).push(`/tenants/${item.id}?mode=assign`)
+            }
+          />
+        )}
+      />
+      <Pressable
+        style={styles.fab}
+        onPress={() => (router as any).push("/tenants/new")}
+      >
+        <Text style={styles.fabText}>Add</Text>
+      </Pressable>
+    </View>
   );
 }
 
-function TenantRow({ tenant }: { tenant: Tenant }) {
-  const name = tenant.fullName ?? tenant.full_name ?? "-";
-  const phone =
-    tenant.phone ?? tenant.phone_number ?? tenant.phoneNumber ?? null;
+function TenantRow({
+  tenant,
+  unitName,
+  onPress,
+  onAssign,
+}: {
+  tenant: Tenant;
+  unitName: string;
+  onPress: () => void;
+  onAssign: () => void;
+}) {
+  const name = tenant.full_name ?? (tenant as any).fullName ?? "-";
   const email = tenant.email ?? null;
-  const leaseStart = tenant.leaseStart ?? tenant.lease_start ?? null;
-  const leaseEnd = tenant.leaseEnd ?? tenant.lease_end ?? null;
+  const leaseStart = tenant.lease_start ?? (tenant as any).leaseStart ?? null;
+  const leaseEnd = tenant.lease_end ?? (tenant as any).leaseEnd ?? null;
+  const unassigned = !tenant.unit_id;
   return (
-    <View style={styles.row}>
+    <Pressable onPress={onPress} style={styles.row}>
       <View style={styles.rowHeader}>
         <Text style={styles.name}>{name}</Text>
         {!!email && <Text style={styles.email}>{email}</Text>}
       </View>
-      {!!phone && <Text style={styles.phone}>{phone}</Text>}
+      <View style={styles.badgeRow}>
+        <View
+          style={[
+            styles.badge,
+            unassigned ? styles.badgeGray : styles.badgeBlue,
+          ]}
+        >
+          <Text style={styles.badgeText}>{unitName}</Text>
+        </View>
+        {unassigned && (
+          <Pressable onPress={onAssign} style={styles.assignBtn}>
+            <Text style={styles.assignText}>Assign</Text>
+          </Pressable>
+        )}
+      </View>
       <Text style={styles.lease}>
-        {formatDate(leaseStart)} → {formatDate(leaseEnd)}
+        {formatDate(leaseStart)} to {formatDate(leaseEnd)}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
 function formatDate(value?: string | null): string {
   if (!value) return "-";
-  // Expecting ISO string from API. Show YYYY-MM-DD.
   return value.slice(0, 10);
 }
 
@@ -160,19 +174,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 16,
   },
-  flexGrow: {
-    flexGrow: 1,
-  },
-  muted: {
-    color: "#6b7280",
-    marginTop: 8,
-  },
+  flexGrow: { flexGrow: 1 },
+  muted: { color: "#6b7280", marginTop: 8 },
   errorText: {
     color: "#ef4444",
     marginBottom: 12,
     textAlign: "center",
     paddingHorizontal: 16,
   },
+  retryBtn: {
+    backgroundColor: "#1b73e8",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+    marginTop: 10,
+  },
+  retryText: { color: "#fff", fontWeight: "600" },
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -184,27 +201,38 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  name: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  email: { fontSize: 12, color: "#6b7280" },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 4,
   },
-  name: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  badgeBlue: { backgroundColor: "#e0f2fe" },
+  badgeGray: { backgroundColor: "#f3f4f6" },
+  badgeText: { color: "#111827", fontSize: 12 },
+  lease: { fontSize: 13, color: "#374151" },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 20,
+    backgroundColor: "#0a7ea4",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    elevation: 2,
   },
-  email: {
-    fontSize: 12,
-    color: "#6b7280",
+  fabText: { color: "#fff", fontWeight: "700" },
+  assignBtn: {
+    marginLeft: 8,
+    backgroundColor: "#0a7ea4",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
-  phone: {
-    fontSize: 12,
-    color: "#374151",
-    marginBottom: 2,
-  },
-  lease: {
-    fontSize: 13,
-    color: "#374151",
-  },
-  footer: {
-    paddingVertical: 16,
-  },
+  assignText: { color: "#fff", fontWeight: "600", fontSize: 12 },
 });

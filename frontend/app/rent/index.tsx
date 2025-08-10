@@ -1,6 +1,7 @@
 // app/rent/index.tsx
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
 import { useApi } from "@/lib/api";
+import { useAuth } from "@clerk/clerk-expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import {
@@ -40,11 +41,13 @@ function formatDate(iso: string): string {
 export default function RentScreen() {
   const api = useApi();
   const qc = useQueryClient();
+  const { isLoaded, isSignedIn } = useAuth();
 
   const queryKey = ["payments", "due"] as const;
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey,
     queryFn: () => api.get<PaymentsResponse>("/v1/payments?status=due"),
+    enabled: isLoaded && isSignedIn,
   });
 
   const markPaid = useMutation({
