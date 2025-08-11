@@ -7,7 +7,7 @@ module Payments
 
     # Ensures each tenant has scheduled payments up to today + 90 days
     def perform
-      today = Date.today
+      today = Date.current
       horizon = today + 90.days
 
       tenants_scope = ::Tenant.where("lease_start IS NOT NULL")
@@ -42,7 +42,10 @@ module Payments
       if last_due_date.present?
         target_month = Date.new(last_due_date.year, last_due_date.month, 1).next_month
       else
-        target_month = Date.new(tenant.lease_start.year, tenant.lease_start.month, 1)
+        # Onboarding assumption: when first registering, start from max(lease_start, today)
+        first_month = Date.new(tenant.lease_start.year, tenant.lease_start.month, 1)
+        cutoff = Date.new(today.year, today.month, 1)
+        target_month = [first_month, cutoff].max
       end
 
       clamp_day_of_month(target_month.year, target_month.month, tenant.lease_start.day)

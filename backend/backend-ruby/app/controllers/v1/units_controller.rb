@@ -4,11 +4,30 @@ module V1
     before_action :set_unit, only: %i[show update destroy]
 
     def index
-      units = Unit.where(org_id: current_org_id)
-      pagy_obj, records = pagy(units, page: params[:page], items: params[:limit])
+      base_scope = Unit.where(org_id: current_org_id)
+      base_scope = base_scope.left_joins(:tenants)
+                             .select('units.*, COUNT(tenants.id) AS occupants_count')
+                             .group('units.id')
+
+      # Optional case-insensitive query by name or address
+      if params[:q].present?
+        q = "%#{params[:q].to_s.strip}%"
+        base_scope = base_scope.where("units.name ILIKE :q OR units.address ILIKE :q", q: q)
+      end
+
+      pagy_obj, records = pagy(base_scope, page: params[:page], items: params[:limit])
       meta = pagy_metadata(pagy_obj)
+
+      items = records.map do |u|
+        attrs = u.attributes.slice('id', 'name', 'address', 'monthly_rent', 'notes', 'beds', 'baths', 'created_at')
+        attrs.merge(
+          'photos' => (u.respond_to?(:photos) && u.photos.is_a?(Array) ? u.photos : []),
+          'occupants_count' => u.read_attribute(:occupants_count).to_i
+        )
+      end
+
       render json: {
-        items: records,
+        items: items,
         page: meta[:page],
         limit: meta[:items],
         total: meta[:count],
@@ -17,7 +36,18 @@ module V1
     end
 
     def show
-      render json: @unit
+      record = Unit.where(org_id: current_org_id)
+                   .left_joins(:tenants)
+                   .select('units.*, COUNT(tenants.id) AS occupants_count')
+                   .group('units.id')
+                   .find(params[:id])
+
+      attrs = record.attributes.slice('id', 'name', 'address', 'monthly_rent', 'notes', 'beds', 'baths', 'created_at')
+      payload = attrs.merge(
+        'photos' => (record.respond_to?(:photos) && record.photos.is_a?(Array) ? record.photos : []),
+        'occupants_count' => record.read_attribute(:occupants_count).to_i
+      )
+      render json: payload
     end
 
     def create
@@ -78,7 +108,12 @@ module V1
     end
 
     def unit_params
-      params.require(:unit).permit(:name, :address, :monthly_rent, :notes, :cover_image_uri)
+      permitted = [:name, :address, :monthly_rent, :notes, :cover_image_uri, :beds, :baths, { photos: [] }]
+      if params[:unit].is_a?(ActionController::Parameters)
+        params.require(:unit).permit(*permitted)
+      else
+        params.permit(*permitted)
+      end
     end
   end
 end

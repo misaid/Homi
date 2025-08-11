@@ -4,6 +4,7 @@ class Unit < ApplicationRecord
 
   validates :name, presence: true
   validates :monthly_rent, numericality: true, allow_nil: true
+  # photos is a jsonb array of strings (URLs). Default [] handled at DB level.
 end
 
 

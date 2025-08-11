@@ -1,4 +1,5 @@
 // app/_layout.tsx
+import { Colors } from "@/constants/Colors";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import {
   DarkTheme,
@@ -17,6 +18,7 @@ import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 import { useColorScheme } from "../hooks/useColorScheme";
 
 // Keep splash until auth state is known
@@ -43,10 +45,27 @@ function AppShell() {
     if (!navState?.key) return;
 
     const inAuthGroup = segments?.[0] === "(auth)";
-    if (isSignedIn && inAuthGroup) {
-      router.replace("/(tabs)/home");
-    } else if (!isSignedIn && !inAuthGroup) {
-      router.replace("/(auth)/sign-in");
+    const inMarketingGroup = segments?.[0] === "(marketing)";
+
+    if (Platform.OS === "web") {
+      if (isSignedIn) {
+        if (inAuthGroup || inMarketingGroup) {
+          router.replace("/(tabs)/home");
+        }
+      } else {
+        const atRoot = !segments || segments.length === 0;
+        if (atRoot) {
+          router.replace("/(marketing)");
+        } else if (!inMarketingGroup && !inAuthGroup) {
+          router.replace("/(marketing)");
+        }
+      }
+    } else {
+      if (isSignedIn && inAuthGroup) {
+        router.replace("/(tabs)/home");
+      } else if (!isSignedIn && !inAuthGroup) {
+        router.replace("/(auth)/sign-in");
+      }
     }
 
     (async () => {
@@ -76,6 +95,13 @@ export default function RootLayout() {
     console.warn("Missing CLERK_PUBLISHABLE_KEY in Constants.expoConfig.extra");
 
   const navTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
+  // Unify page background via navigation theme colors
+  const pageBg = Colors[colorScheme ?? "light"].pageBackground;
+  (navTheme as any).colors = {
+    ...(navTheme as any).colors,
+    background: pageBg,
+    card: pageBg,
+  };
   const barStyle = colorScheme === "dark" ? "light" : "dark";
 
   return (

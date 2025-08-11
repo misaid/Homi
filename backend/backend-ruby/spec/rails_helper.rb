@@ -20,6 +20,9 @@ RSpec.configure do |config|
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!
   config.include FactoryBot::Syntax::Methods
+
+  # Ensure DB can be reached in CI/local without docker link name
+  # Allow overriding PG host via ENV DATABASE_URL; otherwise default config applies.
 end
 
 

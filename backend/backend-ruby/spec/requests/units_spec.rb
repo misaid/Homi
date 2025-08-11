@@ -12,13 +12,16 @@ RSpec.describe 'Units', type: :request do
     { 'Authorization' => 'Bearer x' }
   end
 
-  it 'lists units paginated with shape { items, page, limit, total, hasMore }' do
-    create_list(:unit, 3, org: org)
+  it 'lists units paginated with shape { items, page, limit, total, hasMore } and includes occupants_count' do
+    u = create(:unit, org: org)
+    create(:tenant, org: org, unit: u)
     get '/v1/units', headers: auth
     expect(response).to have_http_status(:ok)
     body = json_body
     expect(body['items']).to be_a(Array)
     expect(body.keys).to include('page', 'limit', 'total', 'hasMore')
+    item = body['items'].find { |i| i['id'] == u.id }
+    expect(item['occupants_count']).to be >= 1
   end
 
   it 'creates a unit with org scoping' do

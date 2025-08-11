@@ -14,7 +14,12 @@ module Payments
       start_on = parse_date(start_on_str) || tenant.lease_start
       end_on = parse_date(end_on_str) || tenant.lease_end
 
-      Payments::ScheduleGenerator.call(tenant: tenant, start_on: start_on, end_on: end_on)
+      Payments::ScheduleGenerator.call(
+        tenant: tenant,
+        start_on: start_on,
+        end_on: end_on,
+        horizon_days: 90
+      )
     end
 
     def self.enqueue(tenant_id:, start_on:, end_on:)

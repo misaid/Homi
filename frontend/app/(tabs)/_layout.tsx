@@ -4,6 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import { Platform } from "react-native";
 
+import AppHeaderActions from "@/components/AppHeaderActions";
 import { HapticTab } from "@/components/HapticTab";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Colors } from "@/constants/Colors";
@@ -21,7 +22,12 @@ export default function TabLayout() {
       initialRouteName="home"
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
+        headerShown: true,
+        headerLeft: () => <AppHeaderActions side="left" />,
+        headerRight: () => <AppHeaderActions side="right" />,
+        headerTitleAlign: "center",
+        headerLeftContainerStyle: { paddingLeft: 8 },
+        headerRightContainerStyle: { paddingRight: 8 },
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
@@ -29,7 +35,9 @@ export default function TabLayout() {
             // Use a transparent background on iOS to show the blur effect
             position: "absolute",
           },
-          default: {},
+          default: {
+            backgroundColor: Colors[colorScheme ?? "light"].pageBackground,
+          },
         }),
         tabBarIcon: ({ color, focused, size }) => {
           const iconMap: Record<string, string> = {
@@ -37,7 +45,6 @@ export default function TabLayout() {
             units: "business",
             tenants: "people",
             rent: "card",
-            settings: "settings",
           };
           const baseName = iconMap[route.name] ?? "ellipse";
           const name = focused ? baseName : `${baseName}-outline`;
@@ -63,26 +70,21 @@ export default function TabLayout() {
         name="units"
         options={{
           title: "Units",
-          headerShown: true,
+          // Index will use Tabs header; nested stack controls details
         }}
       />
       <Tabs.Screen
         name="tenants"
         options={{
           title: "Tenants",
-          headerShown: true,
+          // Index will use Tabs header; nested stack controls details
         }}
       />
       <Tabs.Screen
         name="rent"
         options={{
           title: "Rent",
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
+          headerShown: true,
         }}
       />
     </Tabs>

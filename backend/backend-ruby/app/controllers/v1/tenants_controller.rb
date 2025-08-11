@@ -4,8 +4,31 @@ module V1
     before_action :set_tenant, only: %i[show update destroy]
 
     def index
-      tenants = Tenant.where(org_id: current_org_id)
-      pagy_obj, records = pagy(tenants, page: params[:page], items: params[:limit])
+      base_scope = Tenant.where(org_id: current_org_id)
+
+      # Search
+      q = params[:q].to_s.strip
+      if q.present?
+        like = "%#{q}%"
+        base_scope = base_scope.where(
+          "full_name ILIKE :q OR email ILIKE :q OR phone ILIKE :q",
+          q: like
+        )
+      end
+
+      # Sort
+      sort_param = params[:sort].presence || "name"
+      order_param = params[:order].to_s.downcase == "desc" ? "desc" : "asc"
+      sort_map = {
+        "name" => "full_name",
+        "lease_start" => "lease_start",
+        "lease_end" => "lease_end",
+        "created_at" => "created_at"
+      }
+      sort_column = sort_map[sort_param] || "full_name"
+      base_scope = base_scope.order(Arel.sql("#{sort_column} #{order_param}"))
+
+      pagy_obj, records = pagy(base_scope, page: params[:page], items: params[:limit])
       meta = pagy_metadata(pagy_obj)
       render json: {
         items: records,
@@ -49,7 +72,12 @@ module V1
     end
 
     def tenant_params
-      params.require(:tenant).permit(:full_name, :phone, :email, :lease_start, :lease_end, :unit_id)
+      permitted = [:full_name, :phone, :email, :lease_start, :lease_end, :unit_id, :rent_amount]
+      if params[:tenant].is_a?(ActionController::Parameters)
+        params.require(:tenant).permit(*permitted)
+      else
+        params.permit(*permitted)
+      end
     end
   end
 end

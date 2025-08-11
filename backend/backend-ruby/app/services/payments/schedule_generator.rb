@@ -2,14 +2,18 @@ module Payments
   class ScheduleGenerator
     Result = Struct.new(:created, :skipped, :updated, keyword_init: true)
 
-    def self.call(tenant:, start_on:, end_on:)
-      new(tenant: tenant, start_on: start_on, end_on: end_on).call
+    def self.call(tenant:, start_on:, end_on:, horizon_days: 90)
+      new(tenant: tenant, start_on: start_on, end_on: end_on, horizon_days: horizon_days).call
     end
 
-    def initialize(tenant:, start_on:, end_on:)
+    def initialize(tenant:, start_on:, end_on:, horizon_days: 90)
       @tenant = tenant
-      @start_on = to_date(start_on)
-      @end_on = to_date(end_on)
+      raw_start = to_date(start_on)
+      raw_end = to_date(end_on)
+      today = Date.current
+      @start_on = raw_start.present? ? [raw_start, today].max : today
+      default_horizon = today + horizon_days.to_i.days
+      @end_on = raw_end.present? ? raw_end : default_horizon
     end
 
     def call
@@ -24,6 +28,11 @@ module Payments
 
       while month_cursor <= last_month
         due_date = clamp_day_of_month(month_cursor.year, month_cursor.month, @start_on.day)
+        # Never create past-due rows
+        if due_date < Date.current
+          month_cursor = month_cursor.next_month
+          next
+        end
         if payment_exists?(due_date)
           skipped_count += 1
         else

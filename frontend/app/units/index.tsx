@@ -1,11 +1,14 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import { UnitCard } from "@/components/UnitCard";
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { useApi } from "@/lib/api";
-import { qk } from "@/lib/queryKeys";
 import type { Paginated, Unit } from "@/lib/types";
 import { useAuth } from "@clerk/clerk-expo";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,71 +16,120 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const PAGE_SIZE = 20;
 
 export default function UnitsScreen() {
+  const colorScheme = useColorScheme();
+  const pageBg = Colors[colorScheme ?? "light"].pageBackground;
   const api = useApi();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isLoaded, isSignedIn } = useAuth();
+  const insets = useSafeAreaInsets();
 
-  const query = useInfiniteQuery<Paginated<Unit>, Error>({
-    queryKey: qk.units(1, PAGE_SIZE),
-    queryFn: ({ pageParam = 1 }) =>
-      api.get<Paginated<Unit>>(
-        `/api/v1/units?page=${pageParam}&limit=${PAGE_SIZE}`
-      ),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.page + 1 : undefined,
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [page, setPage] = useState<number>(1);
+  const [items, setItems] = useState<Unit[]>([]);
+  const isResettingRef = useRef<boolean>(false);
+
+  // Debounce search input
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  // Fetch one page at a time like Tenants
+  const query = useQuery<Paginated<Unit>, Error>({
+    queryKey: ["units", { q: debounced || undefined, page, limit: PAGE_SIZE }],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(PAGE_SIZE));
+      if (debounced) params.set("q", debounced);
+      return api.get<Paginated<Unit>>(`/api/v1/units?${params.toString()}`);
+    },
     enabled: isLoaded && isSignedIn,
+    keepPreviousData: true,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 
-  const units = useMemo(
-    () => query.data?.pages.flatMap((p) => p.items) ?? [],
-    [query.data]
-  );
+  // Accumulate pages
+  useEffect(() => {
+    if (!query.data) return;
+    setItems((prev) => {
+      if (page === 1 || isResettingRef.current) {
+        isResettingRef.current = false;
+        return query.data!.items;
+      }
+      return [...prev, ...query.data!.items];
+    });
+  }, [query.data, page]);
+
+  // Reset pagination on search change
+  const lastFilterRef = useRef<string>("");
+  useEffect(() => {
+    const key = debounced;
+    if (lastFilterRef.current !== key) {
+      lastFilterRef.current = key;
+      isResettingRef.current = true;
+      setPage(1);
+    }
+  }, [debounced]);
+
+  const units = items;
 
   const onRefresh = useCallback(() => {
+    setPage(1);
+    queryClient.invalidateQueries({
+      queryKey: [
+        "units",
+        { q: debounced || undefined, page: 1, limit: PAGE_SIZE },
+      ],
+    });
     query.refetch();
-  }, [query]);
+  }, [queryClient, query, debounced]);
 
   const onEndReached = useCallback(() => {
-    if (query.hasNextPage && !query.isFetchingNextPage) {
-      query.fetchNextPage();
+    if (isResettingRef.current) return;
+    if (query.data?.hasMore && !query.isFetching) {
+      setPage((p) => p + 1);
     }
-  }, [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]);
-
-  if (query.isPending) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={styles.muted}>Loading units...</Text>
-      </View>
-    );
-  }
-
-  if (query.isError) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{query.error.message}</Text>
-        <Pressable onPress={() => query.refetch()} style={styles.retryBtn}>
-          <Text style={styles.retryText}>Retry</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  }, [query.data?.hasMore, query.isFetching]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: pageBg }]}>
       <FlatList
         data={units}
         keyExtractor={(item) => String(item.id)}
+        contentInsetAdjustmentBehavior="automatic"
+        ListHeaderComponent={
+          <HeaderSearch value={search} onChange={setSearch} />
+        }
         renderItem={({ item }) => (
-          <UnitRow
-            unit={item}
+          <UnitCard
+            id={String(item.id)}
+            name={item.name}
+            address={item.address}
+            monthly_rent={item.monthly_rent}
+            beds={item.beds}
+            baths={item.baths}
+            photos={item.photos ?? []}
+            occupants_count={item.occupants_count ?? 0}
+            onAddOccupant={() =>
+              router.push({
+                pathname: "/tenants/new",
+                params: { unit_id: String(item.id) },
+              })
+            }
             onPress={() =>
               router.push({
                 pathname: "/units/[id]",
@@ -86,22 +138,27 @@ export default function UnitsScreen() {
             }
           />
         )}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 72 },
+        ]}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl
-            refreshing={query.isRefetching}
-            onRefresh={onRefresh}
-          />
+          <RefreshControl refreshing={query.isFetching} onRefresh={onRefresh} />
         }
         onEndReachedThreshold={0.5}
         onEndReached={onEndReached}
-        ListEmptyComponent={() => (
-          <View style={styles.center}>
-            <Text style={styles.muted}>No units found</Text>
-          </View>
-        )}
+        ListEmptyComponent={() => {
+          const showEmpty =
+            !query.isPending && (query.data?.items?.length ?? 0) === 0;
+          return showEmpty ? (
+            <View style={styles.center}>
+              <Text style={styles.muted}>No units found</Text>
+            </View>
+          ) : null;
+        }}
         ListFooterComponent={
-          query.isFetchingNextPage ? (
+          query.isFetching ? (
             <View style={styles.footerLoading}>
               <ActivityIndicator />
             </View>
@@ -115,16 +172,38 @@ export default function UnitsScreen() {
   );
 }
 
-function UnitRow({ unit, onPress }: { unit: Unit; onPress: () => void }) {
-  const rent = `$${Number(unit.monthly_rent ?? 0).toLocaleString()}`;
+const HeaderSearch = memo(function HeaderSearch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
-    <Pressable onPress={onPress} style={styles.item}>
-      <Text style={styles.title}>{unit.name}</Text>
-      {!!unit.address && <Text style={styles.sub}>{unit.address}</Text>}
-      <Text style={styles.rent}>{rent} monthly</Text>
-    </Pressable>
+    <View style={styles.searchContainer}>
+      <View style={styles.searchWrap}>
+        <Ionicons
+          name="search-outline"
+          size={18}
+          color="#6b7280"
+          style={styles.searchIcon}
+        />
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          placeholder="Search units..."
+          placeholderTextColor="#9ca3af"
+          style={styles.searchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+          blurOnSubmit={false}
+        />
+      </View>
+    </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -148,18 +227,28 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   retryText: { color: "white", fontWeight: "600" },
-  listContent: { padding: 12, paddingBottom: 72 },
-  item: {
+  listContent: { paddingVertical: 4, paddingBottom: 72 },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingRight: 10,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e5e7eb",
     backgroundColor: "#fff",
     borderRadius: 10,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e0e0e0",
+    height: 44,
+    paddingLeft: 10,
   },
-  title: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  sub: { color: "#444", marginBottom: 6 },
-  rent: { color: "#111", fontWeight: "500" },
+  searchIcon: { marginRight: 6 },
   footerLoading: { paddingVertical: 16 },
   fab: {
     position: "absolute",

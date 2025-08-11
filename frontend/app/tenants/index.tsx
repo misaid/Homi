@@ -1,11 +1,14 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
-import type { Paginated, Tenant, Unit } from "@/lib/types";
+import type { Paginated, Tenant, TenantsQuery, Unit } from "@/lib/types";
 import { useAuth } from "@clerk/clerk-expo";
-import { useQuery } from "@tanstack/react-query";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,19 +16,52 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TenantsScreen() {
+  const colorScheme = useColorScheme();
+  const pageBg = Colors[colorScheme ?? "light"].pageBackground;
   const api = useApi();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isLoaded, isSignedIn } = useAuth();
+  const insets = useSafeAreaInsets();
+  const DEFAULT = {
+    q: "",
+    sort: "created_at" as const,
+    order: "desc" as const,
+    page: 1,
+    limit: 20,
+  };
+  const limit = DEFAULT.limit;
+  const [q, setQ] = useState<string>(DEFAULT.q);
+  const [sort, setSort] = useState<TenantsQuery["sort"]>(DEFAULT.sort);
+  const [order, setOrder] = useState<TenantsQuery["order"]>(DEFAULT.order);
+  const [page, setPage] = useState<number>(1);
+  const [items, setItems] = useState<Tenant[]>([]);
+  const isResettingRef = useRef<boolean>(false);
+
+  const debouncedQ = useDebounce(q, 400);
+  const normalizedQ: string | undefined =
+    debouncedQ.trim().length > 0 ? debouncedQ : undefined;
 
   const tenantsQuery = useQuery<Paginated<Tenant>, Error>({
-    queryKey: qk.tenants(1, 20),
+    queryKey: qk.tenantsList({ q: normalizedQ, sort, order, page, limit }),
     queryFn: () =>
-      api.get<Paginated<Tenant>>(`/api/v1/tenants?page=1&limit=20`),
+      api.get<Paginated<Tenant>>(
+        `/api/v1/tenants?page=${page}&limit=${limit}` +
+          (normalizedQ ? `&q=${encodeURIComponent(normalizedQ)}` : "") +
+          (sort ? `&sort=${sort}` : "") +
+          (order ? `&order=${order}` : "")
+      ),
     enabled: isLoaded && isSignedIn,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 
   const unitsQuery = useQuery<Paginated<Unit>, Error>({
@@ -34,7 +70,31 @@ export default function TenantsScreen() {
     enabled: isLoaded && isSignedIn,
   });
 
-  const tenants = tenantsQuery.data?.items ?? [];
+  // Accumulate pages
+  useEffect(() => {
+    if (!tenantsQuery.data) return;
+    setItems((prev) => {
+      if (page === 1) return tenantsQuery.data!.items;
+      const next = [...prev, ...tenantsQuery.data!.items];
+      return next;
+    });
+    if (page === 1) {
+      isResettingRef.current = false;
+    }
+  }, [tenantsQuery.data, page]);
+
+  // Reset pagination on filter changes
+  const lastFilterKeyRef = useRef<string>("");
+  const filterKey = `${normalizedQ ?? ""}|${sort}|${order}`;
+  useEffect(() => {
+    if (lastFilterKeyRef.current !== filterKey) {
+      lastFilterKeyRef.current = filterKey;
+      isResettingRef.current = true;
+      setPage(1);
+    }
+  }, [filterKey]);
+
+  const tenants = items;
   const unitNameById = useMemo(() => {
     const map = new Map<string, string>();
     (unitsQuery.data?.items ?? []).forEach((u) =>
@@ -43,11 +103,15 @@ export default function TenantsScreen() {
     return map;
   }, [unitsQuery.data]);
 
-  const isRefetching = tenantsQuery.isRefetching || unitsQuery.isRefetching;
+  const isRefetching = tenantsQuery.isFetching || unitsQuery.isRefetching;
   const onRefresh = useCallback(() => {
+    setPage(1);
+    queryClient.invalidateQueries({
+      queryKey: qk.tenantsList({ q: normalizedQ, sort, order, page: 1, limit }),
+    });
     tenantsQuery.refetch();
     unitsQuery.refetch();
-  }, [tenantsQuery, unitsQuery]);
+  }, [queryClient, tenantsQuery, unitsQuery, debouncedQ, sort, order, limit]);
 
   if (tenantsQuery.isPending && tenants.length === 0) {
     return (
@@ -73,21 +137,50 @@ export default function TenantsScreen() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: pageBg }}>
+      <Controls
+        q={q}
+        onChangeQ={setQ}
+        sort={sort}
+        onChangeSort={(v) => {
+          setSort(v);
+          setPage(1);
+        }}
+        order={order}
+        onChangeOrder={(v) => setOrder(v)}
+      />
       <FlatList
         data={tenants}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={
-          tenants.length === 0 ? styles.flexGrow : undefined
-        }
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={[
+          tenants.length === 0 ? styles.flexGrow : undefined,
+          { paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12) + 72 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={() => (
-          <View style={styles.center}>
-            <Text style={styles.muted}>No tenants found</Text>
-          </View>
-        )}
+        ListEmptyComponent={() => {
+          const showEmpty =
+            normalizedQ !== undefined &&
+            !tenantsQuery.isFetching &&
+            (tenantsQuery.data?.items?.length ?? 0) === 0;
+          return showEmpty ? (
+            <View style={styles.center}>
+              <Text style={styles.muted}>No tenants found</Text>
+            </View>
+          ) : null;
+        }}
+        onEndReachedThreshold={0.5}
+        onEndReached={() => {
+          if (isResettingRef.current) return;
+          if (tenants.length === 0) return;
+          if (tenantsQuery.data?.hasMore && !tenantsQuery.isFetching) {
+            setPage((p) => p + 1);
+          }
+        }}
         renderItem={({ item }) => (
           <TenantRow
             tenant={item}
@@ -116,6 +209,133 @@ export default function TenantsScreen() {
       </Pressable>
     </View>
   );
+}
+
+const Controls = memo(function Controls({
+  q,
+  onChangeQ,
+  sort,
+  onChangeSort,
+  order,
+  onChangeOrder,
+}: {
+  q: string;
+  onChangeQ: (v: string) => void;
+  sort: TenantsQuery["sort"];
+  onChangeSort: (v: TenantsQuery["sort"]) => void;
+  order: TenantsQuery["order"];
+  onChangeOrder: (v: TenantsQuery["order"]) => void;
+}) {
+  const sortLabel = (s: TenantsQuery["sort"]) => {
+    switch (s) {
+      case "name":
+        return "Name";
+      case "lease_start":
+        return "Lease start";
+      case "lease_end":
+        return "Lease end";
+      default:
+        return "Recently added";
+    }
+  };
+
+  return (
+    <View>
+      <View style={styles.controlsRow}>
+        <View style={[styles.searchWrap, { flex: 1 }]}>
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color="#6b7280"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            accessibilityLabel="Search tenants"
+            placeholder="Search tenants"
+            placeholderTextColor="#9ca3af"
+            value={q}
+            onChangeText={onChangeQ}
+            style={styles.searchInput}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+            importantForAutofill="no"
+          />
+        </View>
+        {q?.length ? (
+          <Pressable
+            accessibilityLabel="Clear search"
+            onPress={() => onChangeQ("")}
+            style={styles.clearBtn}
+          >
+            <Text style={styles.clearBtnText}>Clear</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <View style={styles.chipsRow} accessibilityLabel="Sort by">
+        {(
+          [
+            { key: "name", label: "Name" },
+            { key: "lease_start", label: "Lease start" },
+            { key: "lease_end", label: "Lease end" },
+            { key: "created_at", label: "Recently added" },
+          ] as Array<{ key: TenantsQuery["sort"]; label: string }>
+        ).map((opt) => (
+          <Pressable
+            key={opt.key}
+            onPress={() => onChangeSort(opt.key)}
+            style={[
+              styles.chip,
+              (sort || "created_at") === opt.key ? styles.chipActive : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                (sort || "created_at") === opt.key
+                  ? styles.chipTextActive
+                  : null,
+              ]}
+            >
+              {opt.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.chipsRow} accessibilityLabel="Sort order">
+        {(["asc", "desc"] as const).map((opt) => (
+          <Pressable
+            key={opt}
+            onPress={() => onChangeOrder(opt)}
+            style={[styles.chip, order === opt ? styles.chipActive : null]}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                order === opt ? styles.chipTextActive : null,
+              ]}
+            >
+              {opt === "asc" ? "Asc" : "Desc"}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+});
+
+function useDebounce<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    // Flush immediately when cleared (empty string) for snappy UX
+    if (typeof value === "string" && value.length === 0) {
+      setDebounced(value as T);
+      return;
+    }
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function TenantRow({
@@ -168,6 +388,62 @@ function formatDate(value?: string | null): string {
 }
 
 const styles = StyleSheet.create({
+  controlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    gap: 8,
+    paddingTop: 8,
+  },
+  chipsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingRight: 10,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    height: 44,
+    paddingLeft: 10,
+  },
+  searchIcon: { marginRight: 6 },
+  chip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  chipActive: {
+    backgroundColor: "#0a7ea4",
+    borderColor: "#0a7ea4",
+  },
+  chipText: { fontSize: 12, color: "#111827" },
+  chipTextActive: { color: "#fff", fontWeight: "700" },
+  clearBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#f3f4f6",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e5e7eb",
+  },
+  clearBtnText: { fontSize: 12, color: "#374151" },
   center: {
     flex: 1,
     alignItems: "center",

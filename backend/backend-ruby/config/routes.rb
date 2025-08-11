@@ -24,21 +24,25 @@ Rails.application.routes.draw do
 
     # Backward compatible API under /api/v1 mapped to V1 controllers
     scope "/v1", module: "v1", as: "v1" do
+      get "metrics/rent_summary", to: "metrics#rent_summary"
       resources :units
       resources :tenants
       resources :payments do
         post :pay, on: :member
       end
+      resources :issues
     end
   end
 
   # Versioned public API without the /api prefix
   namespace :v1 do
+    get "metrics/rent_summary", to: "metrics#rent_summary"
     resources :units
     resources :tenants
     resources :payments do
       post :pay, on: :member
     end
+    resources :issues
   end
 
   # Swagger docs

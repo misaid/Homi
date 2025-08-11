@@ -19,6 +19,7 @@ services:
     restart: unless-stopped
     depends_on:
       - db
+      - redis
     networks:
       - homi_net
 
@@ -34,6 +35,31 @@ services:
     # Change host port to avoid conflicts with any local Postgres
     ports:
       - "5433:5432"
+    networks:
+      - homi_net
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homi-sidekiq
+    env_file:
+      - .env.local
+    environment:
+      RAILS_ENV: ${RAILS_ENV:-development}
+    command: bundle exec sidekiq -r ./config/environment.rb -q payments -q default
+    depends_on:
+      - api
+      - db
+      - redis
+    networks:
+      - homi_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: homi-redis
+    ports:
+      - "6379:6379"
     networks:
       - homi_net
 

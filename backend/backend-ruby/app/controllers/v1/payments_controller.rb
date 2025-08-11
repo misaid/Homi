@@ -4,7 +4,7 @@ module V1
     before_action :set_payment, only: %i[show update destroy pay]
 
     def index
-      payments = Payment.where(org_id: current_org_id)
+      payments = Payment.where(org_id: current_org_id).includes(:tenant)
       payments = payments.where(status: params[:status]) if params[:status].present?
       payments = payments.where(tenant_id: params[:tenant_id]) if params[:tenant_id].present?
 
@@ -20,8 +20,13 @@ module V1
       sort_direction = params[:status] == "paid" ? :desc : :asc
       pagy_obj, records = pagy(payments.order(due_date: sort_direction), page: params[:page], items: params[:limit])
       meta = pagy_metadata(pagy_obj)
+      items = records.map do |p|
+        p.as_json(only: [:id, :tenant_id, :due_date, :amount, :status, :paid_at, :method, :note]).merge(
+          tenant: p.tenant.present? ? { id: p.tenant.id, full_name: p.tenant.full_name } : nil
+        )
+      end
       render json: {
-        items: records,
+        items: items,
         page: meta[:page],
         limit: meta[:items],
         total: meta[:count],

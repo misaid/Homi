@@ -30,6 +30,22 @@ const schema = z.object({
     .refine((n) => Number.isFinite(n) && n > 0, {
       message: "Monthly rent must be greater than 0",
     }),
+  beds: z
+    .union([z.string(), z.number()])
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" || v === undefined ? undefined : Number(v)))
+    .refine((v) => v === undefined || Number.isInteger(v), {
+      message: "Beds must be an integer",
+    }),
+  baths: z
+    .union([z.string(), z.number()])
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" || v === undefined ? undefined : Number(v)))
+    .refine((v) => v === undefined || Number.isFinite(v), {
+      message: "Baths must be a number",
+    }),
   notes: z
     .string()
     .optional()
@@ -82,6 +98,8 @@ export default function UnitDetailScreen() {
         name: unitQuery.data.name ?? "",
         address: unitQuery.data.address ?? "",
         monthly_rent: (unitQuery.data.monthly_rent as unknown as string) ?? "",
+        beds: (unitQuery.data.beds as unknown as string) ?? ("" as any),
+        baths: (unitQuery.data.baths as unknown as string) ?? ("" as any),
         notes: (unitQuery.data.notes as string | undefined) ?? "",
       });
     }
@@ -93,6 +111,8 @@ export default function UnitDetailScreen() {
         name: values.name,
         address: values.address,
         monthly_rent: values.monthly_rent as number,
+        beds: values.beds as number | undefined,
+        baths: values.baths as number | undefined,
         notes: values.notes,
       }),
     onSuccess: async () => {
@@ -284,6 +304,52 @@ export default function UnitDetailScreen() {
           </View>
 
           <View style={styles.field}>
+            <Text style={styles.label}>Beds (optional)</Text>
+            <Controller
+              control={control}
+              name="beds"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.beds && styles.inputError]}
+                  placeholder="e.g. 3"
+                  onBlur={onBlur}
+                  onChangeText={onChange as any}
+                  value={String(value ?? "")}
+                  keyboardType="number-pad"
+                />
+              )}
+            />
+            {errors.beds && (
+              <Text style={styles.errorText}>
+                {errors.beds.message as string}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Baths (optional)</Text>
+            <Controller
+              control={control}
+              name="baths"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.baths && styles.inputError]}
+                  placeholder="e.g. 2.5"
+                  onBlur={onBlur}
+                  onChangeText={onChange as any}
+                  value={String(value ?? "")}
+                  keyboardType="decimal-pad"
+                />
+              )}
+            />
+            {errors.baths && (
+              <Text style={styles.errorText}>
+                {errors.baths.message as string}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.field}>
             <Text style={styles.label}>Notes</Text>
             <Controller
               control={control}
@@ -332,6 +398,10 @@ export default function UnitDetailScreen() {
           <Text style={styles.rent}>
             ${Number(unit.monthly_rent ?? 0).toLocaleString()} monthly
           </Text>
+          <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
+            <Text style={styles.muted}>Beds: {unit.beds ?? "-"}</Text>
+            <Text style={styles.muted}>Baths: {unit.baths ?? "-"}</Text>
+          </View>
           {!!unit.notes && <Text style={styles.notes}>{unit.notes}</Text>}
         </View>
       )}

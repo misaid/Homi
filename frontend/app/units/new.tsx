@@ -24,6 +24,22 @@ const schema = z.object({
     .refine((n) => Number.isFinite(n) && n > 0, {
       message: "Monthly rent must be greater than 0",
     }),
+  beds: z
+    .union([z.string(), z.number()])
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" || v === undefined ? undefined : Number(v)))
+    .refine((v) => v === undefined || Number.isInteger(v), {
+      message: "Beds must be an integer",
+    }),
+  baths: z
+    .union([z.string(), z.number()])
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" || v === undefined ? undefined : Number(v)))
+    .refine((v) => v === undefined || Number.isFinite(v), {
+      message: "Baths must be a number",
+    }),
   notes: z
     .string()
     .optional()
@@ -48,6 +64,8 @@ export default function NewUnitScreen() {
       name: "",
       address: "",
       monthly_rent: "" as unknown as number,
+      beds: "" as unknown as number,
+      baths: "" as unknown as number,
       notes: "" as any,
     },
   });
@@ -58,6 +76,8 @@ export default function NewUnitScreen() {
         name: values.name,
         address: values.address,
         monthly_rent: values.monthly_rent as number,
+        beds: values.beds as number | undefined,
+        baths: values.baths as number | undefined,
         notes: values.notes,
       } as const;
       return api.post<Unit>("/api/v1/units", payload);
@@ -144,6 +164,48 @@ export default function NewUnitScreen() {
           <Text style={styles.errorText}>
             {errors.monthly_rent.message as string}
           </Text>
+        )}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>Beds (optional)</Text>
+        <Controller
+          control={control}
+          name="beds"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[styles.input, errors.beds && styles.inputError]}
+              placeholder="e.g. 3"
+              onBlur={onBlur}
+              onChangeText={onChange as any}
+              value={String(value ?? "")}
+              keyboardType="number-pad"
+            />
+          )}
+        />
+        {errors.beds && (
+          <Text style={styles.errorText}>{errors.beds.message as string}</Text>
+        )}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>Baths (optional)</Text>
+        <Controller
+          control={control}
+          name="baths"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[styles.input, errors.baths && styles.inputError]}
+              placeholder="e.g. 2.5"
+              onBlur={onBlur}
+              onChangeText={onChange as any}
+              value={String(value ?? "")}
+              keyboardType="decimal-pad"
+            />
+          )}
+        />
+        {errors.baths && (
+          <Text style={styles.errorText}>{errors.baths.message as string}</Text>
         )}
       </View>
 

@@ -11,17 +11,178 @@
     "/v1/units": {
       "get": {
         "summary": "List units",
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "address": { "type": ["string", "null"] },
+                          "monthly_rent": { "type": ["number", "null"] },
+                          "notes": { "type": ["string", "null"] },
+                          "beds": { "type": ["integer", "null"] },
+                          "baths": { "type": ["number", "null"] },
+                          "photos": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          },
+                          "occupants_count": { "type": "integer" },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": ["id", "name", "photos", "occupants_count"]
+                      }
+                    },
+                    "page": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "total": { "type": "integer" },
+                    "hasMore": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "post": {
         "summary": "Create unit",
         "responses": { "201": { "description": "created" } }
       }
     },
+    "/v1/tenants": {
+      "get": {
+        "summary": "List tenants",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Search by name, email, or phone"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["name", "lease_start", "lease_end", "created_at"],
+              "default": "name"
+            },
+            "description": "Sort field"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "asc"
+            },
+            "description": "Sort order"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "full_name": { "type": "string" },
+                          "email": { "type": ["string", "null"] },
+                          "phone": { "type": ["string", "null"] },
+                          "lease_start": {
+                            "type": ["string", "null"],
+                            "format": "date"
+                          },
+                          "lease_end": {
+                            "type": ["string", "null"],
+                            "format": "date"
+                          },
+                          "unit_id": { "type": ["string", "null"] },
+                          "created_at": {
+                            "type": ["string", "null"],
+                            "format": "date-time"
+                          }
+                        },
+                        "required": ["id", "full_name"]
+                      }
+                    },
+                    "page": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "total": { "type": "integer" },
+                    "hasMore": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/units/{id}": {
       "get": {
         "summary": "Show unit",
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "address": { "type": ["string", "null"] },
+                    "monthly_rent": { "type": ["number", "null"] },
+                    "notes": { "type": ["string", "null"] },
+                    "beds": { "type": ["integer", "null"] },
+                    "baths": { "type": ["number", "null"] },
+                    "photos": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "occupants_count": { "type": "integer" },
+                    "created_at": { "type": "string", "format": "date-time" }
+                  },
+                  "required": ["id", "name", "photos", "occupants_count"]
+                }
+              }
+            }
+          }
+        }
       },
       "patch": {
         "summary": "Update unit",
@@ -70,7 +231,54 @@
     "/v1/payments": {
       "get": {
         "summary": "List payments",
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "tenant_id": { "type": "string" },
+                          "tenant": {
+                            "type": ["object", "null"],
+                            "properties": {
+                              "id": { "type": "string" },
+                              "full_name": { "type": "string" }
+                            }
+                          },
+                          "due_date": { "type": "string", "format": "date" },
+                          "amount": { "type": "number" },
+                          "status": {
+                            "type": "string",
+                            "enum": ["due", "paid"]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "tenant_id",
+                          "due_date",
+                          "amount",
+                          "status"
+                        ]
+                      }
+                    },
+                    "page": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "total": { "type": "integer" },
+                    "hasMore": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/payments/{id}/pay": {
