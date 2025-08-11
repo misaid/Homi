@@ -1,6 +1,13 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 export default function Hero() {
   const router = useRouter();
@@ -58,7 +65,12 @@ export default function Hero() {
             </Pressable>
           </View>
         </View>
-        <View accessibilityLabel="Illustration" style={styles.illustration} />
+        <Image
+          accessibilityLabel="Hero illustration showing property management"
+          source={require("@/assets/images/hero-illustration.webp")}
+          style={styles.illustration}
+          resizeMode="cover"
+        />
       </View>
     </View>
   );
@@ -99,7 +111,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     width: "100%",
     height: 220,
-    backgroundColor: "#f3f4f6",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#e5e7eb",

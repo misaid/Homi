@@ -1,17 +1,37 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function Logos() {
+type Team = { name: string };
+
+const defaultTeams: Team[] = [
+  { name: "Acme" },
+  { name: "Globex" },
+  { name: "Initech" },
+  { name: "Umbrella" },
+  { name: "Hooli" },
+  { name: "Stark Industries" },
+];
+
+function toInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  const letters = parts.map((p) => p[0]?.toUpperCase()).join("");
+  return letters || "·";
+}
+
+export default function Logos({ teams = defaultTeams }: { teams?: Team[] }) {
   return (
     <View style={styles.wrapper}>
       <View style={styles.content}>
         <Text style={styles.heading}>Trusted by small teams</Text>
         <View style={styles.row}>
-          {Array.from({ length: 6 }).map((_, i) => (
+          {teams.map((t, i) => (
             <View
-              key={i}
-              accessibilityLabel={`Logo ${i + 1}`}
+              key={`${t.name}-${i}`}
+              accessibilityRole="image"
+              accessibilityLabel={`${t.name} logo`}
               style={styles.logoBox}
-            />
+            >
+              <Text style={styles.logoText}>{toInitials(t.name)}</Text>
+            </View>
           ))}
         </View>
       </View>
@@ -41,11 +61,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logoBox: {
-    width: 120,
-    height: 36,
-    backgroundColor: "#f3f4f6",
+    width: 140,
+    height: 44,
+    backgroundColor: "#f9fafb",
     borderWidth: 1,
     borderColor: "#e5e7eb",
     borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
+  logoText: { color: "#9ca3af", fontWeight: "700", letterSpacing: 1 },
 });

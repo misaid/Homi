@@ -1,5 +1,6 @@
 // app/_layout.tsx
 import { Colors } from "@/constants/Colors";
+import { ThemeProvider as AppThemeProvider } from "@/context/ThemeContext";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import {
   DarkTheme,
@@ -46,19 +47,14 @@ function AppShell() {
 
     const inAuthGroup = segments?.[0] === "(auth)";
     const inMarketingGroup = segments?.[0] === "(marketing)";
+    const atRoot = !segments || segments.length === 0;
 
     if (Platform.OS === "web") {
-      if (isSignedIn) {
-        if (inAuthGroup || inMarketingGroup) {
-          router.replace("/(tabs)/home");
-        }
-      } else {
-        const atRoot = !segments || segments.length === 0;
-        if (atRoot) {
-          router.replace("/(marketing)");
-        } else if (!inMarketingGroup && !inAuthGroup) {
-          router.replace("/(marketing)");
-        }
+      // On web, only handle the root path. Let each route group guard itself
+      // to avoid flicker and unnecessary replaces while navigating between
+      // public marketing pages and authed app pages.
+      if (atRoot) {
+        router.replace(isSignedIn ? "/(tabs)/home" : "/(marketing)");
       }
     } else {
       if (isSignedIn && inAuthGroup) {
@@ -84,18 +80,9 @@ function AppShell() {
   return <Slot />;
 }
 
-export default function RootLayout() {
-  const [qc] = useState(() => new QueryClient());
+function NavigationThemeWrapper() {
   const colorScheme = useColorScheme();
-
-  const pk = Constants.expoConfig?.extra?.["CLERK_PUBLISHABLE_KEY"] as
-    | string
-    | undefined;
-  if (!pk)
-    console.warn("Missing CLERK_PUBLISHABLE_KEY in Constants.expoConfig.extra");
-
   const navTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
-  // Unify page background via navigation theme colors
   const pageBg = Colors[colorScheme ?? "light"].pageBackground;
   (navTheme as any).colors = {
     ...(navTheme as any).colors,
@@ -103,14 +90,29 @@ export default function RootLayout() {
     card: pageBg,
   };
   const barStyle = colorScheme === "dark" ? "light" : "dark";
+  return (
+    <ThemeProvider value={navTheme}>
+      <StatusBar style={barStyle} />
+      <AppShell />
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  const [qc] = useState(() => new QueryClient());
+
+  const pk = Constants.expoConfig?.extra?.["CLERK_PUBLISHABLE_KEY"] as
+    | string
+    | undefined;
+  if (!pk)
+    console.warn("Missing CLERK_PUBLISHABLE_KEY in Constants.expoConfig.extra");
 
   return (
     <ClerkProvider publishableKey={pk ?? ""} tokenCache={tokenCache}>
       <QueryClientProvider client={qc}>
-        <ThemeProvider value={navTheme}>
-          <StatusBar style={barStyle} />
-          <AppShell />
-        </ThemeProvider>
+        <AppThemeProvider>
+          <NavigationThemeWrapper />
+        </AppThemeProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );

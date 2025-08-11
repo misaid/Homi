@@ -212,7 +212,9 @@ export default function UnitDetailScreen() {
   const unit = unitQuery.data as Unit;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={[styles.container, styles.responsivePad]}
+    >
       <View style={styles.headerRow}>
         <Text style={styles.title}>{unit.name}</Text>
         <View style={styles.headerActions}>
@@ -528,6 +530,7 @@ export default function UnitDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: 16 },
+  responsivePad: { alignSelf: "center", width: "100%", maxWidth: 900 },
   center: { alignItems: "center", justifyContent: "center", padding: 16 },
   muted: { color: "#666", marginTop: 8 },
   errorText: { color: "#b00020", textAlign: "center" },

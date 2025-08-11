@@ -138,23 +138,26 @@ export default function TenantsScreen() {
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: pageBg }}>
-      <Controls
-        q={q}
-        onChangeQ={setQ}
-        sort={sort}
-        onChangeSort={(v) => {
-          setSort(v);
-          setPage(1);
-        }}
-        order={order}
-        onChangeOrder={(v) => setOrder(v)}
-      />
+      <View style={styles.responsivePad}>
+        <Controls
+          q={q}
+          onChangeQ={setQ}
+          sort={sort}
+          onChangeSort={(v) => {
+            setSort(v);
+            setPage(1);
+          }}
+          order={order}
+          onChangeOrder={(v) => setOrder(v)}
+        />
+      </View>
       <FlatList
         data={tenants}
         keyExtractor={(item) => String(item.id)}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[
           tenants.length === 0 ? styles.flexGrow : undefined,
+          styles.responsivePad,
           { paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12) + 72 },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -226,6 +229,11 @@ const Controls = memo(function Controls({
   order: TenantsQuery["order"];
   onChangeOrder: (v: TenantsQuery["order"]) => void;
 }) {
+  const colorScheme = useColorScheme();
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const textColor = Colors[colorScheme ?? "light"].text;
+  const textMuted = Colors[colorScheme ?? "light"].mutedText;
   const sortLabel = (s: TenantsQuery["sort"]) => {
     switch (s) {
       case "name":
@@ -242,20 +250,25 @@ const Controls = memo(function Controls({
   return (
     <View>
       <View style={styles.controlsRow}>
-        <View style={[styles.searchWrap, { flex: 1 }]}>
+        <View
+          style={[
+            styles.searchWrap,
+            { flex: 1, backgroundColor: cardBg, borderColor: border },
+          ]}
+        >
           <Ionicons
             name="search-outline"
             size={18}
-            color="#6b7280"
+            color={textMuted}
             style={styles.searchIcon}
           />
           <TextInput
             accessibilityLabel="Search tenants"
             placeholder="Search tenants"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={textMuted}
             value={q}
             onChangeText={onChangeQ}
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: textColor }]}
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
@@ -266,9 +279,17 @@ const Controls = memo(function Controls({
           <Pressable
             accessibilityLabel="Clear search"
             onPress={() => onChangeQ("")}
-            style={styles.clearBtn}
+            style={[
+              styles.clearBtn,
+              {
+                backgroundColor: colorScheme === "dark" ? "#1f2937" : "#f3f4f6",
+                borderColor: border,
+              },
+            ]}
           >
-            <Text style={styles.clearBtnText}>Clear</Text>
+            <Text style={[styles.clearBtnText, { color: textMuted }]}>
+              Clear
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -349,16 +370,35 @@ function TenantRow({
   onPress: () => void;
   onAssign: () => void;
 }) {
+  const colorScheme = useColorScheme();
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const textColor = Colors[colorScheme ?? "light"].text;
   const name = tenant.full_name ?? (tenant as any).fullName ?? "-";
   const email = tenant.email ?? null;
   const leaseStart = tenant.lease_start ?? (tenant as any).leaseStart ?? null;
   const leaseEnd = tenant.lease_end ?? (tenant as any).leaseEnd ?? null;
   const unassigned = !tenant.unit_id;
   return (
-    <Pressable onPress={onPress} style={styles.row}>
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.row,
+        { backgroundColor: cardBg, borderBottomColor: border },
+      ]}
+    >
       <View style={styles.rowHeader}>
-        <Text style={styles.name}>{name}</Text>
-        {!!email && <Text style={styles.email}>{email}</Text>}
+        <Text style={[styles.name, { color: textColor }]}>{name}</Text>
+        {!!email && (
+          <Text
+            style={[
+              styles.email,
+              { color: Colors[colorScheme ?? "light"].mutedText },
+            ]}
+          >
+            {email}
+          </Text>
+        )}
       </View>
       <View style={styles.badgeRow}>
         <View
@@ -375,7 +415,12 @@ function TenantRow({
           </Pressable>
         )}
       </View>
-      <Text style={styles.lease}>
+      <Text
+        style={[
+          styles.lease,
+          { color: Colors[colorScheme ?? "light"].mutedText },
+        ]}
+      >
         {formatDate(leaseStart)} to {formatDate(leaseEnd)}
       </Text>
     </Pressable>
@@ -451,6 +496,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   flexGrow: { flexGrow: 1 },
+  responsivePad: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 1100,
+  },
   muted: { color: "#6b7280", marginTop: 8 },
   errorText: {
     color: "#ef4444",

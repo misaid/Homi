@@ -97,7 +97,7 @@ export default function NewUnitScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, styles.responsivePad]}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.header}>New Unit</Text>
@@ -261,6 +261,7 @@ export default function NewUnitScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: 16 },
+  responsivePad: { alignSelf: "center", width: "100%", maxWidth: 900 },
   header: { fontSize: 20, fontWeight: "700", marginBottom: 12 },
   field: { marginBottom: 12 },
   label: { marginBottom: 6, color: "#222", fontWeight: "600" },

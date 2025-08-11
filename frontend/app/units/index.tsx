@@ -26,6 +26,9 @@ const PAGE_SIZE = 20;
 export default function UnitsScreen() {
   const colorScheme = useColorScheme();
   const pageBg = Colors[colorScheme ?? "light"].pageBackground;
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const textMuted = Colors[colorScheme ?? "light"].mutedText;
   const api = useApi();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -112,7 +115,9 @@ export default function UnitsScreen() {
         keyExtractor={(item) => String(item.id)}
         contentInsetAdjustmentBehavior="automatic"
         ListHeaderComponent={
-          <HeaderSearch value={search} onChange={setSearch} />
+          <View style={styles.responsiveCenter}>
+            <HeaderSearch value={search} onChange={setSearch} />
+          </View>
         }
         renderItem={({ item }) => (
           <UnitCard
@@ -140,6 +145,7 @@ export default function UnitsScreen() {
         )}
         contentContainerStyle={[
           styles.listContent,
+          styles.responsivePad,
           { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 72 },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -153,7 +159,9 @@ export default function UnitsScreen() {
             !query.isPending && (query.data?.items?.length ?? 0) === 0;
           return showEmpty ? (
             <View style={styles.center}>
-              <Text style={styles.muted}>No units found</Text>
+              <Text style={[styles.muted, { color: textMuted }]}>
+                No units found
+              </Text>
             </View>
           ) : null;
         }}
@@ -228,6 +236,16 @@ const styles = StyleSheet.create({
   },
   retryText: { color: "white", fontWeight: "600" },
   listContent: { paddingVertical: 4, paddingBottom: 72 },
+  responsiveCenter: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 1100,
+  },
+  responsivePad: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 1100,
+  },
   searchContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,

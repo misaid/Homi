@@ -20,9 +20,16 @@ export type MinimalLineChartProps = {
   showXAxis?: boolean; // optional override
   showYAxis?: boolean; // optional override
   yTicks?: number; // default 4
+  // Optional overrides for Y domain and tick formatting
+  yDomain?: [number, number];
+  formatYTick?: (value: number) => string;
+  accessibilityLabel?: string;
 };
 
-const PADDING = 12; // inner padding
+// Layout paddings: leave extra room on the left for y-axis labels
+const PADDING_Y = 12;
+const PADDING_RIGHT = 12;
+const AXIS_LEFT = 40; // space reserved for Y labels and ticks
 
 function buildPath(
   points: Array<{ x: number; y: number }>,
@@ -57,6 +64,9 @@ export default memo(function MinimalLineChart({
   showXAxis,
   showYAxis,
   yTicks = 4,
+  yDomain,
+  formatYTick,
+  accessibilityLabel,
 }: MinimalLineChartProps) {
   const [width, setWidth] = useState<number>(0);
   const onLayout = (e: LayoutChangeEvent) => {
@@ -64,31 +74,28 @@ export default memo(function MinimalLineChart({
     if (w !== width) setWidth(w);
   };
 
-  // Clamp chart domain to 0..100 for percentage-like series to avoid odd ticks
-  const rawMin = Math.min(...values, 0);
-  const rawMax = Math.max(...values, 100);
-  const headroom = (rawMax - rawMin) * 0.08;
-  const yMin = 0; // lock to 0%
-  const yMax = 100; // lock to 100%
+  // Default domain 0..100 (percentage-like), unless explicitly overridden
+  const yMin = yDomain?.[0] ?? 0;
+  const yMax = yDomain?.[1] ?? 100;
 
   const color = values[values.length - 1] >= values[0] ? "#16a34a" : "#dc2626";
   const areaId = useRef(`grad_${Math.random().toString(36).slice(2)}`).current;
 
   const { path, areaPath, points, mapY } = useMemo(() => {
-    const w = Math.max(1, width - PADDING * 2);
-    const h = Math.max(1, height - PADDING * 2);
+    const w = Math.max(1, width - (AXIS_LEFT + PADDING_RIGHT));
+    const h = Math.max(1, height - PADDING_Y * 2);
     const stepX = values.length > 1 ? w / (values.length - 1) : 0;
     const mapY = (v: number) => h - ((v - yMin) / (yMax - yMin)) * h;
     const pts = values.map((v, i) => ({
-      x: PADDING + i * stepX,
-      y: PADDING + mapY(v),
+      x: AXIS_LEFT + i * stepX,
+      y: PADDING_Y + mapY(v),
     }));
     const line = buildPath(pts);
     const area =
       showArea && pts.length > 1
-        ? `${line} L ${PADDING + (values.length - 1) * stepX} ${
-            PADDING + h
-          } L ${PADDING} ${PADDING + h} Z`
+        ? `${line} L ${AXIS_LEFT + (values.length - 1) * stepX} ${
+            PADDING_Y + h
+          } L ${AXIS_LEFT} ${PADDING_Y + h} Z`
         : undefined;
     return { path: line, areaPath: area, points: pts, mapY };
   }, [width, height, values, yMin, yMax, showArea]);
@@ -109,13 +116,14 @@ export default memo(function MinimalLineChart({
   };
 
   const accLabel = useMemo(() => {
+    if (accessibilityLabel) return accessibilityLabel;
     const first = values[0];
     const last = values[values.length - 1];
     const up = last >= first;
-    return `Tenant satisfaction. Last ${Math.round(last)}. Trend ${
-      up ? "up" : "down"
-    }.`;
-  }, [values]);
+    return `Chart. First ${Math.round(first)}. Last ${Math.round(
+      last
+    )}. Trend ${up ? "up" : "down"}.`;
+  }, [values, accessibilityLabel]);
 
   return (
     <View accessible accessibilityLabel={accLabel} onLayout={onLayout}>
@@ -129,70 +137,6 @@ export default memo(function MinimalLineChart({
           onResponderMove={(e) => handleTouch(e.nativeEvent.locationX)}
           onResponderRelease={() => setActiveIdx(null)}
         >
-          {(showXAxis ?? showAxes) || (showYAxis ?? showAxes) ? (
-            <>
-              {(showYAxis ?? showAxes) && (
-                <>
-                  <Path
-                    d={`M ${PADDING} ${PADDING} L ${PADDING} ${
-                      height - PADDING
-                    }`}
-                    stroke="#e5e7eb"
-                    strokeWidth={1}
-                  />
-                  {Array.from({ length: yTicks + 1 }).map((_, i) => {
-                    const v = (100 * i) / yTicks; // 0..100 ticks
-                    const y = PADDING + mapY(v);
-                    return (
-                      <SvgText
-                        key={`yt-${i}`}
-                        x={PADDING - 6}
-                        y={y + 3}
-                        fontSize={9}
-                        fill="#6b7280"
-                        textAnchor="end"
-                      >
-                        {Math.round(v)}%
-                      </SvgText>
-                    );
-                  })}
-                </>
-              )}
-              {(showXAxis ?? showAxes) && (
-                <>
-                  <Path
-                    d={`M ${PADDING} ${height - PADDING} L ${width - PADDING} ${
-                      height - PADDING
-                    }`}
-                    stroke="#e5e7eb"
-                    strokeWidth={1}
-                  />
-                  {labels?.length ? (
-                    <>
-                      <SvgText
-                        x={PADDING}
-                        y={height - PADDING + 12}
-                        fontSize={10}
-                        fill="#6b7280"
-                        textAnchor="start"
-                      >
-                        {labels[0]}
-                      </SvgText>
-                      <SvgText
-                        x={width - PADDING}
-                        y={height - PADDING + 12}
-                        fontSize={10}
-                        fill="#6b7280"
-                        textAnchor="end"
-                      >
-                        {labels[labels.length - 1]}
-                      </SvgText>
-                    </>
-                  ) : null}
-                </>
-              )}
-            </>
-          ) : null}
           <Defs>
             <LinearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0%" stopColor={color} stopOpacity={0.18} />
@@ -208,6 +152,70 @@ export default memo(function MinimalLineChart({
             strokeLinejoin="round"
             strokeLinecap="round"
           />
+          {(showXAxis ?? showAxes) || (showYAxis ?? showAxes) ? (
+            <>
+              {(showYAxis ?? showAxes) && (
+                <>
+                  <Path
+                    d={`M ${AXIS_LEFT} ${PADDING_Y} L ${AXIS_LEFT} ${
+                      height - PADDING_Y
+                    }`}
+                    stroke="#e5e7eb"
+                    strokeWidth={1}
+                  />
+                  {Array.from({ length: yTicks + 1 }).map((_, i) => {
+                    const v = yMin + ((yMax - yMin) * i) / yTicks; // domain ticks
+                    const y = PADDING_Y + mapY(v);
+                    return (
+                      <SvgText
+                        key={`yt-${i}`}
+                        x={AXIS_LEFT - 6}
+                        y={y + 3}
+                        fontSize={10}
+                        fill="#6b7280"
+                        textAnchor="end"
+                      >
+                        {formatYTick ? formatYTick(v) : `${Math.round(v)}%`}
+                      </SvgText>
+                    );
+                  })}
+                </>
+              )}
+              {(showXAxis ?? showAxes) && (
+                <>
+                  <Path
+                    d={`M ${AXIS_LEFT} ${height - PADDING_Y} L ${
+                      width - PADDING_RIGHT
+                    } ${height - PADDING_Y}`}
+                    stroke="#e5e7eb"
+                    strokeWidth={1}
+                  />
+                  {labels?.length ? (
+                    <>
+                      <SvgText
+                        x={AXIS_LEFT}
+                        y={height - PADDING_Y + 12}
+                        fontSize={10}
+                        fill="#6b7280"
+                        textAnchor="start"
+                      >
+                        {labels[0]}
+                      </SvgText>
+                      <SvgText
+                        x={width - PADDING_RIGHT}
+                        y={height - PADDING_Y + 12}
+                        fontSize={10}
+                        fill="#6b7280"
+                        textAnchor="end"
+                      >
+                        {labels[labels.length - 1]}
+                      </SvgText>
+                    </>
+                  ) : null}
+                </>
+              )}
+            </>
+          ) : null}
 
           {activeIdx != null && (
             <>

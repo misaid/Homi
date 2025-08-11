@@ -1,10 +1,20 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import { useAuth } from "@clerk/clerk-expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { Colors } from "@/constants/Colors";
+import { useThemeController } from "@/context/ThemeContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 type Props = {
@@ -16,6 +26,8 @@ export default function AppHeaderActions({ side = "left" }: Props) {
   const colorScheme = useColorScheme();
   const tint = Colors[colorScheme ?? "light"].tint;
   const [open, setOpen] = useState(false);
+  const { signOut } = useAuth();
+  const { override, setOverride } = useThemeController();
 
   function onPressNotifications() {
     try {
@@ -42,16 +54,48 @@ export default function AppHeaderActions({ side = "left" }: Props) {
       )}
 
       {side === "right" && (
-        <View style={{ position: "relative" }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {/* Theme toggle */}
           <Pressable
-            accessibilityLabel="Notifications"
-            onPress={onPressNotifications}
+            accessibilityLabel={
+              colorScheme === "dark"
+                ? "Switch to light mode"
+                : "Switch to dark mode"
+            }
+            onPress={() => {
+              if (override === "light" || override === "dark") {
+                setOverride(override === "light" ? "dark" : "light");
+              } else {
+                // If following system, toggle opposite of current scheme
+                setOverride(colorScheme === "dark" ? "light" : "dark");
+              }
+            }}
             hitSlop={8}
             style={styles.btn}
           >
-            <Ionicons name="notifications-outline" size={22} color={tint} />
+            <Ionicons
+              name={
+                colorScheme === "dark"
+                  ? ("sunny-outline" as any)
+                  : ("moon-outline" as any)
+              }
+              size={22}
+              color={tint}
+            />
           </Pressable>
-          <View style={styles.badgeDot} />
+
+          {/* Notifications */}
+          <View style={{ position: "relative" }}>
+            <Pressable
+              accessibilityLabel="Notifications"
+              onPress={onPressNotifications}
+              hitSlop={8}
+              style={styles.btn}
+            >
+              <Ionicons name="notifications-outline" size={22} color={tint} />
+            </Pressable>
+            <View style={styles.badgeDot} />
+          </View>
         </View>
       )}
 
@@ -63,8 +107,66 @@ export default function AppHeaderActions({ side = "left" }: Props) {
           onRequestClose={() => setOpen(false)}
         >
           <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-            <Pressable style={styles.menu} onPress={() => {}}>
-              <Text style={styles.menuTitle}>Menu</Text>
+            <Pressable
+              style={[
+                styles.menu,
+                { backgroundColor: Colors[colorScheme ?? "light"].card },
+              ]}
+              onPress={() => {}}
+            >
+              <Text
+                style={[
+                  styles.menuTitle,
+                  { color: Colors[colorScheme ?? "light"].mutedText },
+                ]}
+              >
+                Menu
+              </Text>
+              <View style={{ height: 4 }} />
+              <Text
+                style={[
+                  styles.menuTitle,
+                  { color: Colors[colorScheme ?? "light"].mutedText },
+                ]}
+              >
+                Appearance
+              </Text>
+              <Pressable
+                accessibilityLabel={
+                  colorScheme === "dark"
+                    ? "Switch to light mode"
+                    : "Switch to dark mode"
+                }
+                onPress={() => {
+                  if (override === "light" || override === "dark") {
+                    setOverride(override === "light" ? "dark" : "light");
+                  } else {
+                    setOverride(colorScheme === "dark" ? "light" : "dark");
+                  }
+                }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                }}
+              >
+                <Ionicons
+                  name={
+                    colorScheme === "dark"
+                      ? ("sunny-outline" as any)
+                      : ("moon-outline" as any)
+                  }
+                  size={18}
+                  color={Colors[colorScheme ?? "light"].text}
+                />
+                <Text style={{ color: Colors[colorScheme ?? "light"].text }}>
+                  {colorScheme === "dark" ? "Light mode" : "Dark mode"}
+                </Text>
+              </Pressable>
+
               <Pressable
                 accessibilityLabel="Go to Settings"
                 style={styles.menuItem}
@@ -76,7 +178,14 @@ export default function AppHeaderActions({ side = "left" }: Props) {
                   color="#111827"
                   style={{ marginRight: 8 }}
                 />
-                <Text style={styles.menuItemText}>Settings</Text>
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: Colors[colorScheme ?? "light"].text },
+                  ]}
+                >
+                  Settings
+                </Text>
               </Pressable>
               <Pressable
                 accessibilityLabel="About"
@@ -92,17 +201,29 @@ export default function AppHeaderActions({ side = "left" }: Props) {
                   color="#111827"
                   style={{ marginRight: 8 }}
                 />
-                <Text style={styles.menuItemText}>About</Text>
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: Colors[colorScheme ?? "light"].text },
+                  ]}
+                >
+                  About
+                </Text>
               </Pressable>
               <Pressable
                 accessibilityLabel="Sign out"
                 style={styles.menuItem}
-                onPress={() => {
+                onPress={async () => {
                   setOpen(false);
-                  Alert.alert(
-                    "Sign out",
-                    "Use the Settings screen to sign out."
-                  );
+                  try {
+                    await signOut();
+                  } catch {}
+                  // After sign-out, ensure navigation to a public route
+                  if (Platform.OS === "web") {
+                    router.replace("/(marketing)");
+                  } else {
+                    router.replace("/(auth)/sign-in");
+                  }
                 }}
               >
                 <Ionicons
@@ -111,7 +232,14 @@ export default function AppHeaderActions({ side = "left" }: Props) {
                   color="#111827"
                   style={{ marginRight: 8 }}
                 />
-                <Text style={styles.menuItemText}>Sign out</Text>
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    { color: Colors[colorScheme ?? "light"].text },
+                  ]}
+                >
+                  Sign out
+                </Text>
               </Pressable>
             </Pressable>
           </Pressable>

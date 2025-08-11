@@ -25,6 +25,10 @@ import {
 export default function HomeTab() {
   const colorScheme = useColorScheme();
   const pageBg = Colors[colorScheme ?? "light"].pageBackground;
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const textMuted = Colors[colorScheme ?? "light"].mutedText;
+  const textColor = Colors[colorScheme ?? "light"].text;
   const api = useApi();
   const { isLoaded, isSignedIn } = useAuth();
   const queryClient = useQueryClient();
@@ -143,10 +147,15 @@ export default function HomeTab() {
         ListHeaderComponent={
           <View style={{ marginTop: 4 }}>
             <View
-              style={styles.card}
+              style={[
+                styles.card,
+                { backgroundColor: cardBg, borderBottomColor: border },
+              ]}
               accessibilityLabel={satisfactionA11yLabel(satValues)}
             >
-              <Text style={styles.sectionTitle}>Tenant satisfaction</Text>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>
+                Tenant satisfaction
+              </Text>
               <MinimalLineChart
                 values={satValues}
                 labels={satLabels}
@@ -157,8 +166,15 @@ export default function HomeTab() {
               />
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Issues</Text>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: cardBg, borderBottomColor: border },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: textColor }]}>
+                Issues
+              </Text>
               <View
                 style={[
                   styles.controlsRow,
@@ -172,20 +188,25 @@ export default function HomeTab() {
                     alignItems: "center",
                   }}
                 >
-                  <View style={[styles.searchWrap, { flex: 1 }]}>
+                  <View
+                    style={[
+                      styles.searchWrap,
+                      { flex: 1, backgroundColor: cardBg, borderColor: border },
+                    ]}
+                  >
                     <Ionicons
                       name="search-outline"
                       size={18}
-                      color="#6b7280"
+                      color={textMuted}
                       style={styles.searchIcon}
                     />
                     <TextInput
                       accessibilityLabel="Search issues"
                       placeholder="Search issues"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={textMuted}
                       value={search}
                       onChangeText={setSearch}
-                      style={styles.searchInput}
+                      style={[styles.searchInput, { color: textColor }]}
                       returnKeyType="search"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -195,16 +216,29 @@ export default function HomeTab() {
                     <Pressable
                       accessibilityLabel="Clear search"
                       onPress={() => setSearch("")}
-                      style={styles.clearBtn}
+                      style={[
+                        styles.clearBtn,
+                        {
+                          backgroundColor:
+                            colorScheme === "dark" ? "#1f2937" : "#f3f4f6",
+                          borderColor: border,
+                        },
+                      ]}
                     >
-                      <Text style={styles.clearBtnText}>Clear</Text>
+                      <Text style={[styles.clearBtnText, { color: textMuted }]}>
+                        Clear
+                      </Text>
                     </Pressable>
                   ) : null}
                 </View>
                 <Pressable
                   accessibilityLabel="Create new issue"
                   onPress={() => setCreateOpen(true)}
-                  style={styles.newBtn}
+                  style={[
+                    styles.newBtn,
+                    // Keep a consistent brand accent regardless of theme
+                    { backgroundColor: Colors.light.tint },
+                  ]}
                 >
                   <Text style={styles.newBtnText}>+ New Issue</Text>
                 </Pressable>
@@ -269,7 +303,7 @@ export default function HomeTab() {
             }, status ${statusLabel(item.status)}, created ${formatDate(
               item.created_at
             )}`}
-            style={styles.row}
+            style={[styles.row, { backgroundColor: cardBg }]}
             onPress={() => setSelected(item)}
           >
             <View style={styles.rowHeader}>
@@ -292,11 +326,16 @@ export default function HomeTab() {
                   <Badge color="#111827" text={item.unit.name} />
                 ) : null}
               </View>
-              <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
+              <Text style={[styles.dateText, { color: textMuted }]}>
+                {formatDate(item.created_at)}
+              </Text>
             </View>
           </Pressable>
         )}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 0 }}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: 24, paddingTop: 0 },
+        ]}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />
         }
@@ -304,7 +343,7 @@ export default function HomeTab() {
         onEndReached={onEndReached}
         ListEmptyComponent={() => (
           <View style={styles.center}>
-            <Text style={styles.muted}>No issues</Text>
+            <Text style={[styles.muted, { color: textMuted }]}>No issues</Text>
           </View>
         )}
       />
@@ -629,6 +668,12 @@ function generateSatisfaction(
 }
 
 const styles = StyleSheet.create({
+  contentContainer: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 1000,
+    paddingHorizontal: 12,
+  },
   header: {
     fontSize: 24,
     fontWeight: "700",
@@ -727,6 +772,15 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#0a7ea4", borderColor: "#0a7ea4" },
   chipText: { fontSize: 12, color: "#111827" },
   chipTextActive: { color: "#fff", fontWeight: "700" },
+  newBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  newBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.3)",

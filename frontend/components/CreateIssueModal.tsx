@@ -1,3 +1,5 @@
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import type { Issue } from "@/lib/types";
@@ -25,6 +27,10 @@ export default function CreateIssueModal({
   onCreated,
 }: CreateIssueModalProps) {
   const api = useApi();
+  const colorScheme = useColorScheme();
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const textMuted = Colors[colorScheme ?? "light"].mutedText;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<"low" | "medium" | "high">("low");
@@ -112,11 +118,24 @@ export default function CreateIssueModal({
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            styles.responsiveCard,
+            { backgroundColor: cardBg },
+          ]}
+        >
           <Text style={styles.title}>New Issue</Text>
 
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                borderColor: border,
+                backgroundColor: cardBg,
+                color: Colors[colorScheme ?? "light"].text,
+              },
+            ]}
             placeholder="Title"
             value={title}
             onChangeText={setTitle}
@@ -126,7 +145,15 @@ export default function CreateIssueModal({
           {!!titleError && <Text style={styles.errorText}>{titleError}</Text>}
 
           <TextInput
-            style={[styles.input, styles.textarea]}
+            style={[
+              styles.input,
+              styles.textarea,
+              {
+                borderColor: border,
+                backgroundColor: cardBg,
+                color: Colors[colorScheme ?? "light"].text,
+              },
+            ]}
             placeholder="Description (optional)"
             value={description}
             onChangeText={setDescription}
@@ -283,6 +310,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     width: "100%",
+  },
+  responsiveCard: {
+    maxWidth: 560,
+    alignSelf: "center",
   },
   title: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
   label: { fontSize: 12, color: "#374151", marginTop: 8, marginBottom: 4 },

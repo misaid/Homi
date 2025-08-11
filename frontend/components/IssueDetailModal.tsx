@@ -1,3 +1,5 @@
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import type { Issue } from "@/lib/types";
@@ -14,6 +16,10 @@ type Props = {
 export default function IssueDetailModal({ issue, visible, onClose }: Props) {
   const api = useApi();
   const qc = useQueryClient();
+  const colorScheme = useColorScheme();
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const textColor = Colors[colorScheme ?? "light"].text;
   const [status, setStatus] = useState<Issue["status"]>(
     issue?.status ?? "open"
   );
@@ -82,13 +88,35 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{issue?.title}</Text>
+        <View
+          style={[
+            styles.card,
+            styles.responsiveCard,
+            { backgroundColor: cardBg },
+          ]}
+        >
+          <Text style={[styles.title, { color: textColor }]}>
+            {issue?.title}
+          </Text>
           {!!issue?.description && (
-            <Text style={styles.desc}>{issue?.description}</Text>
+            <Text
+              style={[
+                styles.desc,
+                { color: Colors[colorScheme ?? "light"].mutedText },
+              ]}
+            >
+              {issue?.description}
+            </Text>
           )}
 
-          <Text style={styles.label}>Status</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: Colors[colorScheme ?? "light"].mutedText },
+            ]}
+          >
+            Status
+          </Text>
           <View style={styles.row}>
             {(["open", "in_progress", "resolved", "closed"] as const).map(
               (st) => (
@@ -115,7 +143,14 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
             )}
           </View>
 
-          <Text style={styles.label}>Unit</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: Colors[colorScheme ?? "light"].mutedText },
+            ]}
+          >
+            Unit
+          </Text>
           <View style={styles.rowWrap}>
             <Pressable
               onPress={() => setUnitId(null)}
@@ -151,7 +186,14 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
             ))}
           </View>
 
-          <Text style={styles.label}>Tenant</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: Colors[colorScheme ?? "light"].mutedText },
+            ]}
+          >
+            Tenant
+          </Text>
           <View style={styles.rowWrap}>
             <Pressable
               onPress={() => setTenantId(null)}
@@ -233,6 +275,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     width: "100%",
+  },
+  responsiveCard: {
+    maxWidth: 560,
+    alignSelf: "center",
   },
   title: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
   desc: { fontSize: 14, color: "#374151", marginBottom: 12 },

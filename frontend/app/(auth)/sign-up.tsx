@@ -1,9 +1,11 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { useAuth, useSignUp } from "@clerk/clerk-expo";
-import { useRouter } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Redirect, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Button,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -16,6 +18,15 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { setActive } = useAuth();
   const { signUp, isLoaded } = useSignUp();
+  // If already signed in, do not render the form
+  if ((useAuth() as any)?.isSignedIn) return <Redirect href="/(tabs)/home" />;
+  const colorScheme = useColorScheme();
+  const pageBg = Colors[colorScheme ?? "light"].pageBackground;
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const tint = Colors[colorScheme ?? "light"].tint;
+  const text = Colors[colorScheme ?? "light"].text;
+  const muted = Colors[colorScheme ?? "light"].mutedText;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,19 +74,7 @@ export default function SignUpScreen() {
         if (sessionId && setActive) {
           await setActive({ session: sessionId });
         }
-        router.replace("/(tabs)/home");
-        setTimeout(() => {
-          try {
-            router.replace("/(tabs)/home");
-          } catch {}
-        }, 0);
-        if (typeof window !== "undefined") {
-          setTimeout(() => {
-            try {
-              if (window.location) window.location.assign("/");
-            } catch {}
-          }, 400);
-        }
+        // Let render-time redirect take over
         return;
       }
       setError("Verification not complete. Check the code and try again.");
@@ -90,19 +89,7 @@ export default function SignUpScreen() {
           const sid = (signUp as any)?.createdSessionId;
           if (sid && setActive) {
             await setActive({ session: sid });
-            router.replace("/(tabs)/home");
-            setTimeout(() => {
-              try {
-                router.replace("/(tabs)/home");
-              } catch {}
-            }, 0);
-            if (typeof window !== "undefined") {
-              setTimeout(() => {
-                try {
-                  if (window.location) window.location.assign("/");
-                } catch {}
-              }, 400);
-            }
+            // Let render-time redirect take over
             return;
           }
         } catch {}
@@ -123,58 +110,132 @@ export default function SignUpScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Create account</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {stage === "form" ? (
-          <>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email address"
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              style={styles.input}
-            />
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              secureTextEntry
-              style={styles.input}
-            />
-            <Button
-              title={submitting ? "Creating account..." : "Create account"}
-              onPress={onCreateAccount}
-              disabled={!canSubmitForm || submitting}
-            />
-            <View style={styles.switchRow}>
-              <Text>Have an account? </Text>
-              <Pressable onPress={() => router.push("/(auth)/sign-in")}>
-                <Text style={styles.link}>Sign in</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: pageBg }]}>
+      <View style={styles.centerWrap}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: cardBg, borderColor: border },
+          ]}
+        >
+          <View style={styles.brandRow}>
+            <View style={[styles.brandIcon, { backgroundColor: tint }]} />
+            <Text style={[styles.brandName, { color: text }]}>Homi</Text>
+          </View>
+          <Text style={[styles.title, { color: text }]}>Create account</Text>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {stage === "form" ? (
+            <>
+              <View
+                style={[
+                  styles.inputRow,
+                  { borderColor: border, backgroundColor: cardBg },
+                ]}
+              >
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={muted}
+                  style={{ marginRight: 8 }}
+                />
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email address"
+                  placeholderTextColor={muted}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  style={[styles.input, { color: text }]}
+                />
+              </View>
+              <View
+                style={[
+                  styles.inputRow,
+                  { borderColor: border, backgroundColor: cardBg },
+                ]}
+              >
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={18}
+                  color={muted}
+                  style={{ marginRight: 8 }}
+                />
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  placeholderTextColor={muted}
+                  secureTextEntry
+                  style={[styles.input, { color: text }]}
+                />
+              </View>
+              <Pressable
+                onPress={onCreateAccount}
+                disabled={!canSubmitForm || submitting}
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: tint,
+                    opacity: !canSubmitForm || submitting ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {submitting ? "Creating account..." : "Create account"}
+                </Text>
               </Pressable>
-            </View>
-          </>
-        ) : (
-          <>
-            <Text>We sent a 6 digit code to {email}</Text>
-            <TextInput
-              value={code}
-              onChangeText={setCode}
-              placeholder="6 digit code"
-              keyboardType="number-pad"
-              maxLength={6}
-              style={styles.input}
-            />
-            <Button
-              title={submitting ? "Verifying..." : "Verify"}
-              onPress={onVerify}
-              disabled={!canSubmitCode || submitting}
-            />
-          </>
-        )}
+              <View style={styles.switchRow}>
+                <Text style={{ color: muted }}>Have an account? </Text>
+                <Pressable onPress={() => router.push("/(auth)/sign-in")}>
+                  <Text style={[styles.link, { color: tint }]}>Sign in</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={{ color: muted }}>We sent a 6 digit code to</Text>
+              <Text style={{ color: text, fontWeight: "700" }}>{email}</Text>
+              <View
+                style={[
+                  styles.inputRow,
+                  { borderColor: border, backgroundColor: cardBg },
+                ]}
+              >
+                <Ionicons
+                  name="key-outline"
+                  size={18}
+                  color={muted}
+                  style={{ marginRight: 8 }}
+                />
+                <TextInput
+                  value={code}
+                  onChangeText={setCode}
+                  placeholder="6 digit code"
+                  placeholderTextColor={muted}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  style={[styles.input, { color: text }]}
+                />
+              </View>
+              <Pressable
+                onPress={onVerify}
+                disabled={!canSubmitCode || submitting}
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: tint,
+                    opacity: !canSubmitCode || submitting ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {submitting ? "Verifying..." : "Verify"}
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -182,28 +243,57 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: {
+  centerWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    gap: 12,
+    padding: 16,
   },
-  title: { fontSize: 20, fontWeight: "600", marginBottom: 8 },
-  input: {
+  card: {
     width: "100%",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    maxWidth: 420,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
-  error: { color: "#b00020", textAlign: "center" },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  brandIcon: { width: 28, height: 28, borderRadius: 8 },
+  brandName: { fontSize: 18, fontWeight: "800" },
+  title: { fontSize: 22, fontWeight: "800", marginTop: 4 },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  input: { flex: 1, paddingVertical: 6 },
+  primaryBtn: {
+    marginTop: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  primaryBtnText: { color: "#fff", fontWeight: "800" },
+  error: { color: "#b00020", textAlign: "center", marginTop: 4 },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 6,
+    marginTop: 12,
+    justifyContent: "center",
   },
-  link: { color: "#2563eb", fontWeight: "600" },
+  link: { fontWeight: "800" },
 });

@@ -96,6 +96,9 @@ export default function RentScreen() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const colorScheme = useColorScheme();
   const tint = Colors[colorScheme ?? "light"].tint;
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const border = Colors[colorScheme ?? "light"].border;
+  const textColor = Colors[colorScheme ?? "light"].text;
   const insets = useSafeAreaInsets();
 
   const queryKey = ["payments", "due"] as const;
@@ -144,6 +147,13 @@ export default function RentScreen() {
   const paymentsThisMonthCount = useMemo(() => {
     return sections.find((s) => s.month === currentMonthKey)?.items.length ?? 0;
   }, [sections, currentMonthKey]);
+  const currentMonthTotal = useMemo(() => {
+    const match = sections.find((s) => s.month === currentMonthKey);
+    if (match) {
+      return match.items.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    }
+    return monthlyTotals[monthlyTotals.length - 1] ?? 0;
+  }, [sections, currentMonthKey, monthlyTotals]);
   const monthlyLabels = useMemo(() => {
     return sections.map((s) => {
       const [y, m] = s.month.split("-").map((n) => Number(n));
@@ -155,10 +165,27 @@ export default function RentScreen() {
       }
     });
   }, [sections]);
-  const normalizedChartValues = useMemo(() => {
-    const max = Math.max(1, ...monthlyTotals);
-    return monthlyTotals.map((t) => (t / max) * 100);
+  // Chart y-axis domain and tick formatting
+  const chartMax = useMemo(() => {
+    const maxVal = Math.max(1, ...monthlyTotals);
+    // Round up to a nice number for the axis (e.g., nearest 50/100/500/1000)
+    const magnitude = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    const step = magnitude / 2;
+    return Math.ceil(maxVal / step) * step;
   }, [monthlyTotals]);
+
+  const formatCurrencyTick = (n: number) => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0,
+        notation: "compact",
+      }).format(n);
+    } catch {
+      return `$${Math.round(n)}`;
+    }
+  };
 
   const renderItem: ListRenderItem<Payment> = ({ item }) => {
     const tenantName = item.tenant?.full_name || "Unknown tenant";
@@ -245,38 +272,61 @@ export default function RentScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListHeaderComponent={() => (
-          <View style={styles.headerWrap}>
-            <Text style={styles.headerTitle}>Overview</Text>
+          <View style={[styles.headerWrap, styles.responsiveCenter]}>
+            <Text style={[styles.headerTitle, { color: textColor }]}>
+              Overview
+            </Text>
             <View style={styles.cardsRow}>
-              <View style={styles.statCard}>
+              <View
+                style={[
+                  styles.statCard,
+                  { backgroundColor: cardBg, borderColor: border },
+                ]}
+              >
                 <Text style={styles.statLabel}>Payments this month</Text>
-                <Text style={styles.statValue}>{paymentsThisMonthCount}</Text>
+                <Text style={[styles.statValue, { color: textColor }]}>
+                  {paymentsThisMonthCount}
+                </Text>
                 <Text style={styles.statSub}>due payments</Text>
               </View>
-              <View style={styles.statCard}>
+              <View
+                style={[
+                  styles.statCard,
+                  { backgroundColor: cardBg, borderColor: border },
+                ]}
+              >
                 <Text style={styles.statLabel}>Next payment</Text>
-                <Text style={styles.statValue}>
+                <Text style={[styles.statValue, { color: textColor }]}>
                   {items.length ? formatDate(items[0].due_date) : "—"}
                 </Text>
                 <Text style={styles.statSub}>Tap an item to mark paid</Text>
               </View>
             </View>
 
-            {normalizedChartValues.length > 1 && (
-              <View style={styles.chartCard}>
+            {monthlyTotals.length > 1 && (
+              <View
+                style={[
+                  styles.chartCard,
+                  { backgroundColor: cardBg, borderColor: border },
+                ]}
+              >
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Monthly due trend</Text>
+                  <Text style={[styles.chartTitle, { color: textColor }]}>
+                    Monthly due trend
+                  </Text>
                   <Text style={[styles.chartTitle, { color: tint }]}>
-                    $
-                    {monthlyTotals[monthlyTotals.length - 1]?.toFixed?.(0) ?? 0}
+                    {formatAmount(currentMonthTotal)}
                   </Text>
                 </View>
                 <MinimalLineChart
-                  values={normalizedChartValues}
+                  values={monthlyTotals}
                   labels={monthlyLabels}
                   height={160}
                   showAxes
                   showArea
+                  yDomain={[0, chartMax]}
+                  formatYTick={formatCurrencyTick}
+                  accessibilityLabel="Monthly due trend chart"
                 />
               </View>
             )}
@@ -292,9 +342,17 @@ export default function RentScreen() {
               }
               accessibilityRole="button"
               accessibilityLabel={`Toggle month ${formatMonth(title)}`}
-              style={styles.sectionHeaderRow}
+              style={[
+                styles.sectionHeaderRow,
+                {
+                  backgroundColor:
+                    colorScheme === "dark" ? "#1f2937" : "#e2e8f0",
+                },
+              ]}
             >
-              <Text style={styles.sectionHeaderText}>{formatMonth(title)}</Text>
+              <Text style={[styles.sectionHeaderText, { color: textColor }]}>
+                {formatMonth(title)}
+              </Text>
               <Text style={styles.sectionHeaderCaret}>
                 {isCollapsed ? "▸" : "▾"}
               </Text>
@@ -311,6 +369,7 @@ export default function RentScreen() {
         onRefresh={() => refetch()}
         contentContainerStyle={[
           sections.length === 0 ? styles.flexGrow : styles.listContent,
+          styles.responsivePad,
           { paddingTop: insets.top + 8 },
         ]}
         stickySectionHeadersEnabled
@@ -330,6 +389,16 @@ const styles = StyleSheet.create({
   },
   flexGrow: { flexGrow: 1 },
   listContent: { padding: 12, paddingTop: 4 },
+  responsiveCenter: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 1100,
+  },
+  responsivePad: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 1100,
+  },
   headerWrap: { paddingHorizontal: 4, paddingBottom: 8 },
   headerTitle: {
     fontSize: 20,

@@ -1,4 +1,6 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { memo, useMemo, useRef } from "react";
@@ -18,6 +20,10 @@ export type UnitCardProps = {
 };
 
 function UnitCardComponent(props: UnitCardProps) {
+  const colorScheme = useColorScheme();
+  const cardBg = Colors[colorScheme ?? "light"].card;
+  const chipBg = colorScheme === "dark" ? "#0b1a2b" : "#f4f7fa";
+  const addBg = colorScheme === "dark" ? "#0b2230" : "#e6f3f7";
   const {
     name,
     address,
@@ -62,7 +68,10 @@ function UnitCardComponent(props: UnitCardProps) {
       style={{ borderRadius: RADIUS }}
     >
       <Animated.View
-        style={[styles.card, { transform: [{ scale: pressAnim }] }]}
+        style={[
+          styles.card,
+          { transform: [{ scale: pressAnim }], backgroundColor: cardBg },
+        ]}
       >
         <View style={styles.headerWrapper}>
           {coverUri ? (
@@ -84,28 +93,44 @@ function UnitCardComponent(props: UnitCardProps) {
         <View style={styles.body}>
           <View style={styles.metaRow}>
             <View
-              style={[styles.metaItem, styles.metaChip]}
+              style={[
+                styles.metaItem,
+                styles.metaChip,
+                { backgroundColor: chipBg },
+              ]}
               accessibilityLabel={`Beds ${beds ?? 0}`}
             >
               <Ionicons name="bed-outline" size={16} color="#444" />
               <Text style={styles.metaText}>{beds ?? "-"}</Text>
             </View>
             <View
-              style={[styles.metaItem, styles.metaChip]}
+              style={[
+                styles.metaItem,
+                styles.metaChip,
+                { backgroundColor: chipBg },
+              ]}
               accessibilityLabel={`Baths ${baths ?? 0}`}
             >
               <Ionicons name="water-outline" size={16} color="#444" />
               <Text style={styles.metaText}>{baths ?? "-"}</Text>
             </View>
             <View
-              style={[styles.metaItem, styles.metaChip]}
+              style={[
+                styles.metaItem,
+                styles.metaChip,
+                { backgroundColor: chipBg },
+              ]}
               accessibilityLabel={`Occupants ${occupants_count}`}
             >
               <Ionicons name="person-outline" size={16} color="#444" />
               <Text style={styles.metaText}>{occupants_count}</Text>
             </View>
             <View
-              style={[styles.metaItem, styles.metaChip]}
+              style={[
+                styles.metaItem,
+                styles.metaChip,
+                { backgroundColor: chipBg },
+              ]}
               accessibilityLabel={`Monthly rent ${monthly_rent ?? 0}`}
             >
               <Ionicons name="cash-outline" size={16} color="#444" />
@@ -124,7 +149,7 @@ function UnitCardComponent(props: UnitCardProps) {
             {onAddOccupant && (
               <Pressable
                 onPress={onAddOccupant}
-                style={styles.addBtn}
+                style={[styles.addBtn, { backgroundColor: addBg }]}
                 accessibilityLabel="Add occupant"
               >
                 <Ionicons name="person-add-outline" size={16} color="#0a7ea4" />
