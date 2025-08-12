@@ -17,7 +17,6 @@ import {
 } from "react-native";
 
 import { Colors } from "@/constants/Colors";
-import { useThemeController } from "@/context/ThemeContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 type Props = {
@@ -30,7 +29,6 @@ export default function AppHeaderActions({ side = "left" }: Props) {
   const tint = Colors[colorScheme ?? "light"].tint;
   const [open, setOpen] = useState(false);
   const { signOut } = useAuth();
-  const { override, setOverride } = useThemeController();
   const api = useApi();
 
   const unreadQuery = useQuery({
@@ -68,35 +66,6 @@ export default function AppHeaderActions({ side = "left" }: Props) {
 
       {side === "right" && (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          {/* Theme toggle */}
-          <Pressable
-            accessibilityLabel={
-              colorScheme === "dark"
-                ? "Switch to light mode"
-                : "Switch to dark mode"
-            }
-            onPress={() => {
-              if (override === "light" || override === "dark") {
-                setOverride(override === "light" ? "dark" : "light");
-              } else {
-                // If following system, toggle opposite of current scheme
-                setOverride(colorScheme === "dark" ? "light" : "dark");
-              }
-            }}
-            hitSlop={8}
-            style={styles.btn}
-          >
-            <Ionicons
-              name={
-                colorScheme === "dark"
-                  ? ("sunny-outline" as any)
-                  : ("moon-outline" as any)
-              }
-              size={22}
-              color={tint}
-            />
-          </Pressable>
-
           {/* Notifications */}
           <View style={{ position: "relative" }}>
             <Pressable
@@ -141,50 +110,7 @@ export default function AppHeaderActions({ side = "left" }: Props) {
               >
                 Menu
               </Text>
-              <View style={{ height: 4 }} />
-              <Text
-                style={[
-                  styles.menuTitle,
-                  { color: Colors[colorScheme ?? "light"].mutedText },
-                ]}
-              >
-                Appearance
-              </Text>
-              <Pressable
-                accessibilityLabel={
-                  colorScheme === "dark"
-                    ? "Switch to light mode"
-                    : "Switch to dark mode"
-                }
-                onPress={() => {
-                  if (override === "light" || override === "dark") {
-                    setOverride(override === "light" ? "dark" : "light");
-                  } else {
-                    setOverride(colorScheme === "dark" ? "light" : "dark");
-                  }
-                }}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  paddingHorizontal: 8,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                }}
-              >
-                <Ionicons
-                  name={
-                    colorScheme === "dark"
-                      ? ("sunny-outline" as any)
-                      : ("moon-outline" as any)
-                  }
-                  size={18}
-                  color={Colors[colorScheme ?? "light"].text}
-                />
-                <Text style={{ color: Colors[colorScheme ?? "light"].text }}>
-                  {colorScheme === "dark" ? "Light mode" : "Dark mode"}
-                </Text>
-              </Pressable>
+              {/* Appearance section removed */}
 
               <Pressable
                 accessibilityLabel="Go to Settings"

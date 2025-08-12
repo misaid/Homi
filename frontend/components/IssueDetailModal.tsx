@@ -4,8 +4,15 @@ import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import type { Issue } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 type Props = {
   issue: Issue | null;
@@ -20,6 +27,8 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
   const cardBg = Colors[colorScheme ?? "light"].card;
   const border = Colors[colorScheme ?? "light"].border;
   const textColor = Colors[colorScheme ?? "light"].text;
+  const mutedText = Colors[colorScheme ?? "light"].mutedText;
+  const [title, setTitle] = useState<string>(issue?.title ?? "");
   const [status, setStatus] = useState<Issue["status"]>(
     issue?.status ?? "open"
   );
@@ -29,6 +38,15 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
   const [tenantId, setTenantId] = useState<string | null | undefined>(
     issue?.tenant_id
   );
+
+  // Sync local state when the modal opens for a different issue
+  useEffect(() => {
+    if (!visible) return;
+    setTitle(issue?.title ?? "");
+    setStatus(issue?.status ?? "open");
+    setUnitId(issue?.unit_id);
+    setTenantId(issue?.tenant_id);
+  }, [issue?.id, visible]);
 
   const unitsQuery = useQuery({
     queryKey: qk.unitsAll,
@@ -58,6 +76,13 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
     staleTime: 60_000,
   });
 
+  const titleError = useMemo(() => {
+    const t = (title ?? "").trim();
+    if (!t) return "Title is required";
+    if (t.length > 120) return "Max 120 characters";
+    return null;
+  }, [title]);
+
   const mismatch = useMemo(() => {
     if (!unitId || !tenantId) return null;
     const t = tenantsQuery.data?.find((x) => x.id === tenantId);
@@ -70,6 +95,7 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
   const updateMutation = useMutation({
     mutationFn: () =>
       api.patch<Issue>(`/api/v1/issues/${issue?.id}`, {
+        title: title.trim(),
         status,
         unit_id: unitId ?? null,
         tenant_id: tenantId ?? null,
@@ -95,9 +121,23 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
             { backgroundColor: cardBg },
           ]}
         >
-          <Text style={[styles.title, { color: textColor }]}>
-            {issue?.title}
-          </Text>
+          <Text style={[styles.label, { color: mutedText }]}>Title</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                borderColor: border,
+                backgroundColor: cardBg,
+                color: textColor,
+              },
+            ]}
+            placeholder="Title"
+            placeholderTextColor={mutedText}
+            value={title}
+            onChangeText={setTitle}
+            editable={!updateMutation.isPending}
+          />
+          {!!titleError && <Text style={styles.error}>{titleError}</Text>}
           {!!issue?.description && (
             <Text
               style={[
@@ -241,12 +281,14 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
               <Text style={[styles.btnText, styles.btnGhostText]}>Close</Text>
             </Pressable>
             <Pressable
-              onPress={() => !mismatch && updateMutation.mutate()}
-              disabled={!!mismatch || updateMutation.isPending}
+              onPress={() =>
+                !mismatch && !titleError && updateMutation.mutate()
+              }
+              disabled={!!mismatch || !!titleError || updateMutation.isPending}
               style={[
                 styles.btn,
                 styles.btnPrimary,
-                !!mismatch || updateMutation.isPending
+                !!mismatch || !!titleError || updateMutation.isPending
                   ? styles.btnDisabled
                   : null,
               ]}
@@ -280,7 +322,6 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     alignSelf: "center",
   },
-  title: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
   desc: { fontSize: 14, color: "#374151", marginBottom: 12 },
   label: { fontSize: 12, color: "#374151", marginTop: 8, marginBottom: 4 },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -289,6 +330,15 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
+  },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
   },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,

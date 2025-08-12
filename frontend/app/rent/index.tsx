@@ -345,15 +345,21 @@ export default function RentScreen() {
               style={[
                 styles.sectionHeaderRow,
                 {
-                  backgroundColor:
-                    colorScheme === "dark" ? "#1f2937" : "#e2e8f0",
+                  backgroundColor: cardBg,
+                  borderColor: border,
+                  borderWidth: StyleSheet.hairlineWidth,
                 },
               ]}
             >
               <Text style={[styles.sectionHeaderText, { color: textColor }]}>
                 {formatMonth(title)}
               </Text>
-              <Text style={styles.sectionHeaderCaret}>
+              <Text
+                style={[
+                  styles.sectionHeaderCaret,
+                  { color: Colors[colorScheme ?? "light"].mutedText },
+                ]}
+              >
                 {isCollapsed ? "▸" : "▾"}
               </Text>
             </Pressable>
