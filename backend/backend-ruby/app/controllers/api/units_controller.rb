@@ -45,7 +45,12 @@ module Api
     end
 
     def unit_params
-      params.require(:unit).permit(:name, :address, :monthly_rent, :notes, :cover_image_uri)
+      permitted = [:name, :address, :monthly_rent, :notes, :cover_image_uri]
+      if params[:unit].is_a?(ActionController::Parameters)
+        params.require(:unit).permit(*permitted)
+      else
+        params.permit(*permitted)
+      end
     end
   end
 end

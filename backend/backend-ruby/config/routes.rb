@@ -26,6 +26,8 @@ Rails.application.routes.draw do
     scope "/v1", module: "v1", as: "v1" do
       get "metrics/rent_summary", to: "metrics#rent_summary"
       resources :units
+      post "/units/:id/image", to: "units_images#create"
+      delete "/units/:id/image", to: "units_images#destroy"
       resources :tenants
       resources :payments do
         post :pay, on: :member

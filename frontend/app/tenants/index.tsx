@@ -12,6 +12,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -379,6 +380,15 @@ function TenantRow({
   const leaseStart = tenant.lease_start ?? (tenant as any).leaseStart ?? null;
   const leaseEnd = tenant.lease_end ?? (tenant as any).leaseEnd ?? null;
   const unassigned = !tenant.unit_id;
+  const avatarUri =
+    (tenant as any).avatar_url || (tenant as any).image_url || null;
+  const initials = (name || "-")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0])
+    .join("")
+    .toUpperCase();
   return (
     <Pressable
       onPress={onPress}
@@ -388,17 +398,46 @@ function TenantRow({
       ]}
     >
       <View style={styles.rowHeader}>
-        <Text style={[styles.name, { color: textColor }]}>{name}</Text>
-        {!!email && (
-          <Text
-            style={[
-              styles.email,
-              { color: Colors[colorScheme ?? "light"].mutedText },
-            ]}
-          >
-            {email}
-          </Text>
-        )}
+        <View style={styles.leftHeaderWrap}>
+          <View style={styles.avatarWrap}>
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={styles.avatar}
+                resizeMode="cover"
+              />
+            ) : (
+              <View
+                style={[
+                  styles.avatar,
+                  {
+                    backgroundColor:
+                      colorScheme === "dark" ? "#1f2937" : "#e5e7eb",
+                  },
+                ]}
+              >
+                <Text style={styles.avatarText}>{initials || "T"}</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={[styles.name, { color: textColor }]} numberOfLines={1}>
+              {name}
+            </Text>
+            {!!email && (
+              <Text
+                style={[
+                  styles.email,
+                  { color: Colors[colorScheme ?? "light"].mutedText },
+                ]}
+                numberOfLines={1}
+              >
+                {email}
+              </Text>
+            )}
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
       </View>
       <View style={styles.badgeRow}>
         <View
@@ -518,7 +557,7 @@ const styles = StyleSheet.create({
   retryText: { color: "#fff", fontWeight: "600" },
   row: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomColor: "#e5e7eb",
     borderBottomWidth: StyleSheet.hairlineWidth,
     backgroundColor: "#fff",
@@ -527,8 +566,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 8,
   },
+  leftHeaderWrap: { flexDirection: "row", alignItems: "center", flex: 1 },
+  avatarWrap: { width: 44, height: 44, borderRadius: 22, overflow: "hidden" },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: "#111827", fontWeight: "700" },
   name: { fontSize: 16, fontWeight: "600", color: "#111827" },
   email: { fontSize: 12, color: "#6b7280" },
   badgeRow: {

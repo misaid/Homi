@@ -3,8 +3,10 @@ import { qk } from "@/lib/queryKeys";
 import type { Paginated, Tenant, Unit } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
@@ -106,15 +108,43 @@ export default function UnitDetailScreen() {
   }, [unitQuery.data, reset]);
 
   const updateMutation = useMutation<Unit, Error, FormValues>({
-    mutationFn: async (values) =>
-      api.put<Unit>(`/api/v1/units/${unitId}`, {
+    mutationFn: async (values) => {
+      if (pendingImageUri) {
+        const form = new FormData();
+        const guessMimeFromUri = (uri: string): string => {
+          const lower = uri.toLowerCase();
+          if (lower.endsWith(".png")) return "image/png";
+          if (lower.endsWith(".webp")) return "image/webp";
+          return "image/jpeg";
+        };
+        const type = guessMimeFromUri(pendingImageUri);
+        const filename = `unit_${Date.now()}.jpg`;
+        if (Platform.OS === "web") {
+          const resp = await fetch(pendingImageUri);
+          const blob = await resp.blob();
+          const file = new File([blob], filename, { type });
+          form.append("file", file as any);
+        } else {
+          form.append("file", {
+            uri: pendingImageUri,
+            name: filename,
+            type,
+          } as any);
+        }
+        await api.post<{ image_url: string }>(
+          `/api/v1/units/${unitId}/image`,
+          form
+        );
+      }
+      return api.put<Unit>(`/api/v1/units/${unitId}`, {
         name: values.name,
         address: values.address,
         monthly_rent: values.monthly_rent as number,
         beds: values.beds as number | undefined,
         baths: values.baths as number | undefined,
         notes: values.notes,
-      }),
+      });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.unit(unitId) });
       await queryClient.invalidateQueries({ queryKey: qk.units() });
@@ -148,6 +178,22 @@ export default function UnitDetailScreen() {
       },
     ]);
   };
+
+  const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
+  const pickImage = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.9,
+    });
+    if (res.canceled) return;
+    const asset = res.assets?.[0];
+    if (!asset?.uri) return;
+    setPendingImageUri(asset.uri);
+    setIsEditing(true);
+  }, []);
 
   // Payments modal hooks must be declared before any early returns to preserve hook order
   type Payment = {
@@ -239,6 +285,69 @@ export default function UnitDetailScreen() {
 
       {isEditing ? (
         <View style={styles.card}>
+          <View style={{ gap: 8, marginBottom: 12 }}>
+            <Text style={styles.label}>Cover image</Text>
+            {pendingImageUri ? (
+              <Image
+                source={{ uri: pendingImageUri }}
+                style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 8 }}
+              />
+            ) : unit.display_url ? (
+              <Image
+                source={{ uri: unit.display_url }}
+                style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 8 }}
+              />
+            ) : unit.cover_image_uri ? (
+              <Image
+                source={{ uri: unit.cover_image_uri }}
+                style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 8 }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: "100%",
+                  aspectRatio: 16 / 9,
+                  borderRadius: 8,
+                  backgroundColor: "#f3f4f6",
+                }}
+              />
+            )}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Pressable
+                onPress={pickImage}
+                style={[styles.button, styles.btnSecondary]}
+              >
+                <Text style={[styles.btnText, styles.btnSecondaryText]}>
+                  Change image
+                </Text>
+              </Pressable>
+              {!!unit.image_url && !pendingImageUri && (
+                <Pressable
+                  onPress={async () => {
+                    await api.del(`/api/v1/units/${unitId}/image`);
+                    await queryClient.invalidateQueries({
+                      queryKey: qk.unit(unitId),
+                    });
+                  }}
+                  style={[styles.button, styles.btnSecondary]}
+                >
+                  <Text style={[styles.btnText, styles.btnSecondaryText]}>
+                    Remove image
+                  </Text>
+                </Pressable>
+              )}
+              {pendingImageUri && (
+                <Pressable
+                  onPress={() => setPendingImageUri(null)}
+                  style={[styles.button, styles.btnSecondary]}
+                >
+                  <Text style={[styles.btnText, styles.btnSecondaryText]}>
+                    Remove selection
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
           <View style={styles.field}>
             <Text style={styles.label}>Name</Text>
             <Controller
@@ -466,7 +575,7 @@ export default function UnitDetailScreen() {
           <View style={styles.modalCard}>
             <View style={styles.rowBetween}>
               <Text style={styles.modalTitle}>
-                {paymentsTenant?.full_name}'s payments
+                {paymentsTenant?.full_name}&apos;s payments
               </Text>
               <Pressable
                 onPress={() => setPaymentsTenant(null)}

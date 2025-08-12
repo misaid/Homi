@@ -1,11 +1,12 @@
 import { useAuth } from "@clerk/clerk-expo";
 import Constants from "expo-constants";
 
-const BASE_URL: string | undefined =
+const RAW_BASE_URL: string | undefined =
   (Constants?.expoConfig?.extra as { API_URL?: string } | undefined)?.API_URL ??
   // Fallback for classic manifest in older Expo runtimes
   (Constants as any)?.manifest?.extra?.API_URL ??
   "http://localhost:3000";
+const BASE_URL = (RAW_BASE_URL || "").replace(/\/+$/, "");
 
 export function useApi() {
   const { getToken, isSignedIn } = useAuth();
@@ -23,7 +24,7 @@ export function useApi() {
       typeof FormData !== "undefined" && body instanceof FormData;
 
     const doFetch = async (maybeToken: string | null) =>
-      fetch(`${BASE_URL}${path}`, {
+      fetch(`${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`, {
         ...init,
         headers: {
           ...(isFormData ? {} : { "Content-Type": "application/json" }),

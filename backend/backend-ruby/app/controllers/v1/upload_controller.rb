@@ -7,8 +7,10 @@ module V1
         return render json: { error: "file required" }, status: :unprocessable_entity
       end
       scope = params[:scope]
-      uploaded = SupabaseStorage.upload(bucket: "uploads", path: generated_path(scope: scope), io: params[:file].tempfile)
-      url = SupabaseStorage.signed_url(bucket: "uploads", path: uploaded[:path], expires_in: 3600)
+      bucket = scope == "unit" ? ENV.fetch("SUPABASE_STORAGE_BUCKET_UNITS", "unit-media") : ENV.fetch("SUPABASE_STORAGE_BUCKET_TENANTS", "tenant-media")
+      path = generated_path(scope: scope)
+      uploaded = SupabaseStorage.upload(bucket: bucket, path: path, io: params[:file].tempfile, content_type: params[:file].content_type)
+      url = SupabaseStorage.signed_url(bucket: bucket, path: uploaded[:path], expires_in: 3600)
       render json: { url: url }, status: :ok
     rescue StandardError => e
       render json: { error: e.message }, status: :internal_server_error

@@ -4,6 +4,9 @@ export type Unit = {
   address: string;
   monthly_rent: number;
   notes?: string | null;
+  image_url?: string | null;
+  image_key?: string | null;
+  display_url?: string | null;
   cover_image_uri?: string | null;
   org_id?: string;
   created_at?: string;

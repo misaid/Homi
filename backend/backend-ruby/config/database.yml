@@ -16,6 +16,9 @@ default: &default
   adapter: postgresql
   encoding: unicode
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  # When DATABASE_URL is present (e.g. Supabase Postgres), Rails will use it.
+  # This allows seamless switching to Supabase by setting DATABASE_URL in .env.local
+  url: <%= ENV["DATABASE_URL"] %>
   host: <%= ENV.fetch("PGHOST", "db") %>
   username: <%= ENV.fetch("PGUSER", ENV.fetch("USER", "postgres")) %>
   password: <%= ENV.fetch("PGPASSWORD", "postgres") %>

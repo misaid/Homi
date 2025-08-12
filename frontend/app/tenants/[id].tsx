@@ -1,6 +1,7 @@
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import type { Paginated, Tenant, Unit } from "@/lib/types";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -9,6 +10,8 @@ import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -224,15 +227,63 @@ export default function TenantDetailScreen() {
   const unitLabel = tenant.unit_id
     ? unitNameById.get(String(tenant.unit_id)) ?? "Unknown"
     : "Unassigned";
+  const name = tenant.full_name ?? tenant.fullName ?? "Tenant";
+  const email = tenant.email ?? null;
+  const phone =
+    tenant.phone ?? tenant.phone_number ?? tenant.phoneNumber ?? null;
+  const avatarUri = tenant.avatar_url || tenant.image_url || null;
+  const initials = (name || "-")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s: string) => s[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <ScrollView
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>
-        {tenant.full_name ?? tenant.fullName ?? "Tenant"}
-      </Text>
+      <View style={styles.headerRow}>
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={styles.headerAvatar} />
+        ) : (
+          <View style={[styles.headerAvatar, styles.headerAvatarPlaceholder]}>
+            <Text style={styles.headerAvatarText}>{initials || "T"}</Text>
+          </View>
+        )}
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={styles.title}>{name}</Text>
+          {!!email && <Text style={styles.subtitle}>{email}</Text>}
+        </View>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable
+            accessibilityLabel="Call tenant"
+            disabled={!phone}
+            onPress={() => phone && Linking.openURL(`tel:${phone}`)}
+            style={[styles.iconBtn, !phone ? styles.iconBtnDisabled : null]}
+          >
+            <Ionicons
+              name="call"
+              size={18}
+              color={phone ? "#fff" : "#9ca3af"}
+            />
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Email tenant"
+            disabled={!email}
+            onPress={() => email && Linking.openURL(`mailto:${email}`)}
+            style={[styles.iconBtn, !email ? styles.iconBtnDisabled : null]}
+          >
+            <Ionicons
+              name="mail"
+              size={18}
+              color={email ? "#fff" : "#9ca3af"}
+            />
+          </Pressable>
+        </View>
+      </View>
 
       <View style={styles.card}>
         <View style={styles.rowBetween}>
@@ -457,7 +508,31 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   retryText: { color: "#fff", fontWeight: "600" },
-  title: { fontSize: 20, fontWeight: "700", marginBottom: 12 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 14,
+  },
+  headerAvatar: { width: 64, height: 64, borderRadius: 32 },
+  headerAvatarPlaceholder: {
+    backgroundColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerAvatarText: { fontSize: 20, fontWeight: "800", color: "#111827" },
+  iconBtn: {
+    backgroundColor: "#0a7ea4",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnDisabled: { backgroundColor: "#d1d5db" },
+  title: { fontSize: 22, fontWeight: "800" },
+  subtitle: { fontSize: 13, color: "#6b7280", marginTop: 2 },
   card: {
     backgroundColor: "#fff",
     borderRadius: 10,

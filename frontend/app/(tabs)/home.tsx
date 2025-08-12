@@ -303,31 +303,34 @@ export default function HomeTab() {
             }, status ${statusLabel(item.status)}, created ${formatDate(
               item.created_at
             )}`}
-            style={[styles.row, { backgroundColor: cardBg }]}
+            style={[
+              styles.issueRow,
+              { borderBottomColor: border, backgroundColor: cardBg },
+            ]}
             onPress={() => setSelected(item)}
           >
-            <View style={styles.rowHeader}>
-              <Text style={styles.rowTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+            <View style={styles.issueIconWrap}>
+              <Ionicons
+                name={statusIconName(item.status)}
+                size={18}
+                color={statusIconColor(item.status)}
+              />
             </View>
-            <View style={styles.metaRow}>
-              <View style={styles.badgeRow}>
-                <Badge
-                  color={severityColor(item.severity)}
-                  text={capitalize(item.severity)}
-                />
-                <Badge
-                  color={statusColor(item.status)}
-                  text={statusLabel(item.status)}
-                />
-                {item.unit ? (
-                  <Badge color="#111827" text={item.unit.name} />
-                ) : null}
+            <View style={{ flex: 1 }}>
+              <View style={styles.titleRow}>
+                <Text style={styles.issueTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                <View style={styles.labelsRow}>
+                  <LabelChip tone={severityTone(item.severity)}>
+                    {capitalize(item.severity)}
+                  </LabelChip>
+                </View>
               </View>
-              <Text style={[styles.dateText, { color: textMuted }]}>
+              <Text style={[styles.issueMeta, { color: textMuted }]}>
+                {statusLabel(item.status)} · opened on{" "}
                 {formatDate(item.created_at)}
+                {item.unit?.name ? ` · ${item.unit.name}` : ""}
               </Text>
             </View>
           </Pressable>
@@ -468,31 +471,50 @@ function applySort(
   });
 }
 
-function severityColor(v: Issue["severity"]): string {
+function statusIconName(v: Issue["status"]): any {
   switch (v) {
-    case "low":
-      return "#16a34a";
-    case "medium":
-      return "#f59e0b";
-    case "high":
-      return "#ef4444";
-    case "critical":
-      return "#991b1b";
+    case "open":
+      return "ellipse"; // filled circle
+    case "in_progress":
+      return "time-outline";
+    case "resolved":
+    case "closed":
+      return "checkmark-circle";
+    default:
+      return "ellipse";
   }
 }
 
-function statusColor(v: Issue["status"]): string {
+function statusIconColor(v: Issue["status"]): string {
   switch (v) {
     case "open":
-      return "#2563eb";
+      return "#1a7f37"; // GitHub green
     case "in_progress":
-      return "#7c3aed";
+      return "#0969da"; // blue
     case "resolved":
-      return "#16a34a";
     case "closed":
-      return "#6b7280";
+      return "#8250df"; // purple
     default:
-      return "#2563eb";
+      return "#1a7f37";
+  }
+}
+
+type Tone = {
+  bg: string;
+  text: string;
+  border: string;
+};
+
+function severityTone(v: Issue["severity"]): Tone {
+  switch (v) {
+    case "low":
+      return { bg: "#dcfce7", text: "#166534", border: "#bbf7d0" };
+    case "medium":
+      return { bg: "#fef9c3", text: "#854d0e", border: "#fde68a" };
+    case "high":
+      return { bg: "#fee2e2", text: "#991b1b", border: "#fecaca" };
+    case "critical":
+      return { bg: "#fee2e2", text: "#7f1d1d", border: "#fecaca" };
   }
 }
 
@@ -517,10 +539,23 @@ const Chip = memo(function Chip({
   );
 });
 
-function Badge({ color, text }: { color: string; text: string }) {
+function LabelChip({
+  tone,
+  children,
+}: {
+  tone: Tone;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={[styles.badge, { backgroundColor: color }]}>
-      <Text style={styles.badgeText}>{text}</Text>
+    <View
+      style={[
+        styles.labelChip,
+        { backgroundColor: tone.bg, borderColor: tone.border },
+      ]}
+    >
+      <Text style={[styles.labelChipText, { color: tone.text }]}>
+        {children}
+      </Text>
     </View>
   );
 }
@@ -728,32 +763,38 @@ const styles = StyleSheet.create({
     borderColor: "#e5e7eb",
   },
   clearBtnText: { fontSize: 12, color: "#374151" },
-  row: {
-    marginHorizontal: 12,
-    marginVertical: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+  issueRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
   },
-  rowHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: 6,
+  issueIconWrap: {
+    marginTop: 3,
+  },
+  titleRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  issueTitle: {
     flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0969da", // GitHub link blue
   },
-  metaRow: { flexDirection: "row", alignItems: "center" },
-  badgeRow: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  badgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  dateText: { color: "#6b7280", fontSize: 12 },
+  labelsRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  issueMeta: { fontSize: 12 },
+  labelChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  labelChipText: { fontSize: 12, fontWeight: "600" },
   center: {
     alignItems: "center",
     justifyContent: "center",

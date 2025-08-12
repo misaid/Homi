@@ -18,9 +18,11 @@ module V1
       pagy_obj, records = pagy(base_scope, page: params[:page], items: params[:limit])
       meta = pagy_metadata(pagy_obj)
 
+      resolver = ::Supabase::UrlResolver.new
       items = records.map do |u|
-        attrs = u.attributes.slice('id', 'name', 'address', 'monthly_rent', 'notes', 'beds', 'baths', 'created_at')
+        attrs = u.attributes.slice('id', 'name', 'address', 'monthly_rent', 'notes', 'beds', 'baths', 'image_url', 'image_key', 'created_at')
         attrs.merge(
+          'display_url' => resolver.display_url_for_unit(u),
           'photos' => (u.respond_to?(:photos) && u.photos.is_a?(Array) ? u.photos : []),
           'occupants_count' => u.read_attribute(:occupants_count).to_i
         )
@@ -42,8 +44,10 @@ module V1
                    .group('units.id')
                    .find(params[:id])
 
-      attrs = record.attributes.slice('id', 'name', 'address', 'monthly_rent', 'notes', 'beds', 'baths', 'created_at')
+      resolver = ::Supabase::UrlResolver.new
+      attrs = record.attributes.slice('id', 'name', 'address', 'monthly_rent', 'notes', 'beds', 'baths', 'image_url', 'image_key', 'created_at')
       payload = attrs.merge(
+        'display_url' => resolver.display_url_for_unit(record),
         'photos' => (record.respond_to?(:photos) && record.photos.is_a?(Array) ? record.photos : []),
         'occupants_count' => record.read_attribute(:occupants_count).to_i
       )
@@ -51,7 +55,8 @@ module V1
     end
 
     def create
-      unit = Unit.new(unit_params.merge(org_id: current_org_id))
+      attrs = unit_params.to_h
+      unit = Unit.new(attrs.merge(org_id: current_org_id))
       if unit.save
         render json: unit, status: :created
       else
@@ -60,7 +65,8 @@ module V1
     end
 
     def update
-      if @unit.update(unit_params)
+      attrs = unit_params.to_h
+      if @unit.update(attrs)
         render json: @unit
       else
         render json: { errors: @unit.errors.full_messages }, status: :unprocessable_entity
@@ -109,12 +115,11 @@ module V1
 
     def unit_params
       permitted = [:name, :address, :monthly_rent, :notes, :cover_image_uri, :beds, :baths, { photos: [] }]
-      if params[:unit].is_a?(ActionController::Parameters)
-        params.require(:unit).permit(*permitted)
-      else
-        params.permit(*permitted)
-      end
+      source = params[:unit].is_a?(ActionController::Parameters) ? params[:unit] : params
+      source.permit(*permitted)
     end
+
+    # Image upload moved to Api::V1::UnitsImagesController
   end
 end
 

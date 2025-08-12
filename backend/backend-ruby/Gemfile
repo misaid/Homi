@@ -22,6 +22,7 @@ gem "jwt"
 
 # HTTP client
 gem "faraday"
+gem "http"
 
 # Pagination
 gem "pagy"

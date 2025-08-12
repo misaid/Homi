@@ -127,7 +127,17 @@ export default function UnitsScreen() {
             monthly_rent={item.monthly_rent}
             beds={item.beds}
             baths={item.baths}
-            photos={item.photos ?? []}
+            photos={
+              item.display_url
+                ? [item.display_url]
+                : item.image_url
+                ? [item.image_url]
+                : item.photos && item.photos.length > 0
+                ? item.photos
+                : item.cover_image_uri
+                ? [item.cover_image_uri]
+                : []
+            }
             occupants_count={item.occupants_count ?? 0}
             onAddOccupant={() =>
               router.push({

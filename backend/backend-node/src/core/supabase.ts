@@ -19,7 +19,7 @@ export const supa: SupabaseClient = createClient(
   SUPABASE_SERVICE_ROLE_KEY,
   {
     auth: { persistSession: false },
-  },
+  }
 );
 
 // Buckets from env for convenience
@@ -42,7 +42,7 @@ export async function selectOrg<T = unknown>(
   table: string,
   orgId: string,
   from: number,
-  to: number,
+  to: number
 ) {
   const q = supa
     .from(table)
@@ -58,7 +58,7 @@ export async function selectOrg<T = unknown>(
 export async function insertWithOrg<T = unknown>(
   table: string,
   orgId: string,
-  values: Record<string, unknown>,
+  values: Record<string, unknown>
 ) {
   const payload = { ...values, org_id: orgId };
   const { data, error } = await supa
@@ -74,7 +74,7 @@ export async function updateWithOrg<T = unknown>(
   table: string,
   orgId: string,
   id: string,
-  values: Record<string, unknown>,
+  values: Record<string, unknown>
 ) {
   const { data, error } = await supa
     .from(table)
@@ -101,7 +101,7 @@ export async function uploadToBucket(
   bucket: string,
   path: string,
   file: ArrayBuffer | Uint8Array | Buffer,
-  contentType = "application/octet-stream",
+  contentType = "application/octet-stream"
 ) {
   const { error } = await supa.storage.from(bucket).upload(path, file, {
     contentType,
@@ -114,11 +114,17 @@ export async function uploadToBucket(
 export async function getSignedUrl(
   bucket: string,
   path: string,
-  expiresIn = 3600,
+  expiresIn = 3600
 ) {
   const { data, error } = await supa.storage
     .from(bucket)
     .createSignedUrl(path, expiresIn);
   if (error) throw new Error(error.message);
   return data.signedUrl;
+}
+
+// Return a public URL for an object in a public bucket
+export function getPublicUrl(bucket: string, path: string) {
+  const { data } = supa.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
 }

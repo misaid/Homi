@@ -16,6 +16,21 @@ module CurrentContext
   private
 
   def authenticate_and_set_context
+    # API key bypass for trusted clients
+    api_key = request.headers["X-API-KEY"]
+    if api_key.present? && ENV["API_KEY"].present? && api_key == ENV["API_KEY"]
+      header_org = request.headers["X-Organization-Id"]
+      user_id = "api_key"
+      org_id = OrgResolver.resolve_and_ensure!(
+        clerk_org_id: header_org,
+        fallback_name: "Service Org",
+        user_id: user_id
+      )
+      @current_user_id = user_id
+      @current_org_id = org_id
+      return
+    end
+
     token = bearer_token || request.headers["X-CLERK-AUTH"] || request.headers["CLERK-AUTH"]
     verifier = ClerkTokenVerifier.new
     payload = verifier.decode!(token)

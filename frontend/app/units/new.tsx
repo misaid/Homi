@@ -3,7 +3,10 @@ import { qk } from "@/lib/queryKeys";
 import type { Unit } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Pressable,
@@ -53,6 +56,8 @@ export default function NewUnitScreen() {
   const api = useApi();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [localUri, setLocalUri] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const {
     control,
@@ -72,12 +77,28 @@ export default function NewUnitScreen() {
 
   const mutation = useMutation<Unit, Error, FormValues>({
     mutationFn: async (values) => {
+      const hasImage = !!localUri;
+      if (hasImage) {
+        const form = new FormData();
+        form.append("name", values.name);
+        form.append("address", values.address);
+        form.append("monthly_rent", String(values.monthly_rent ?? ""));
+        if (values.notes) form.append("notes", String(values.notes));
+        const guessMimeFromUri = (uri: string): string => {
+          const lower = uri.toLowerCase();
+          if (lower.endsWith(".png")) return "image/png";
+          if (lower.endsWith(".webp")) return "image/webp";
+          return "image/jpeg";
+        };
+        const name = `unit_${Date.now()}`;
+        const type = guessMimeFromUri(localUri!);
+        form.append("file", { uri: localUri!, name: name, type } as any);
+        return api.post<Unit>("/api/v1/units", form);
+      }
       const payload = {
         name: values.name,
         address: values.address,
         monthly_rent: values.monthly_rent as number,
-        beds: values.beds as number | undefined,
-        baths: values.baths as number | undefined,
         notes: values.notes,
       } as const;
       return api.post<Unit>("/api/v1/units", payload);
@@ -94,6 +115,30 @@ export default function NewUnitScreen() {
   });
 
   const onSubmit = (values: FormValues) => mutation.mutate(values);
+
+  const requestPermission = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    return perm.granted;
+  }, []);
+
+  const onPick = useCallback(async () => {
+    setPicking(true);
+    try {
+      const ok = await requestPermission();
+      if (!ok) return;
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.9,
+      });
+      if (res.canceled) return;
+      const asset = res.assets?.[0];
+      if (!asset?.uri) return;
+      setLocalUri(asset.uri);
+    } finally {
+      setPicking(false);
+    }
+  }, [requestPermission]);
 
   return (
     <ScrollView
@@ -121,6 +166,29 @@ export default function NewUnitScreen() {
         {errors.name && (
           <Text style={styles.errorText}>{errors.name.message}</Text>
         )}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>Cover image (optional)</Text>
+        {localUri ? (
+          <Image
+            source={{ uri: localUri }}
+            style={styles.cover}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={styles.coverPlaceholder} />
+        )}
+        <View style={{ height: 8 }} />
+        <Pressable
+          onPress={onPick}
+          style={[styles.button, styles.btnSecondary]}
+          disabled={picking || mutation.isPending}
+        >
+          <Text style={[styles.btnText, styles.btnSecondaryText]}>
+            {picking ? "Picking..." : localUri ? "Change image" : "Pick image"}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.field}>
