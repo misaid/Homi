@@ -24,6 +24,19 @@ Rails.application.routes.draw do
 
     # Backward compatible API under /api/v1 mapped to V1 controllers
     scope "/v1", module: "v1", as: "v1" do
+      # Notifications and device tokens
+      resources :device_tokens, only: [:create]
+      delete "/device_tokens/:token", to: "device_tokens#destroy"
+
+      resources :notifications, only: [:index, :create] do
+        member do
+          patch :read
+        end
+        collection do
+          patch :read_all
+        end
+      end
+
       get "metrics/rent_summary", to: "metrics#rent_summary"
       resources :units
       post "/units/:id/image", to: "units_images#create"

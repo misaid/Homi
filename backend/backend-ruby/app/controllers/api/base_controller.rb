@@ -1,6 +1,7 @@
 module Api
   class BaseController < ActionController::API
     include CurrentContext
+    include Pagy::Backend
 
     rescue_from ActiveRecord::RecordNotFound do
       render json: { error: "Not Found" }, status: :not_found

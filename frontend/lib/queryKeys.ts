@@ -13,4 +13,10 @@ export const qk = {
   rentSummary: (from?: string, to?: string) =>
     ["metrics", "rent_summary", { from, to }] as const,
   issues: (q: import("./types").IssuesQuery) => ["issues", q] as const,
+  notifications: (q: {
+    page?: number;
+    limit?: number;
+    only_unread?: boolean;
+  }) => ["notifications", q] as const,
+  unreadCount: ["notifications", "unreadCount"] as const,
 };

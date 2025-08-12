@@ -86,3 +86,13 @@ export type IssuesQuery = {
   page?: number;
   limit?: number;
 };
+
+export type Notification = {
+  id: string;
+  title: string;
+  body: string;
+  kind?: string;
+  data?: Record<string, any>;
+  read_at?: string | null;
+  created_at: string;
+};

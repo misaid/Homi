@@ -1,6 +1,9 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
+import { useApi } from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@clerk/clerk-expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -28,11 +31,21 @@ export default function AppHeaderActions({ side = "left" }: Props) {
   const [open, setOpen] = useState(false);
   const { signOut } = useAuth();
   const { override, setOverride } = useThemeController();
+  const api = useApi();
+
+  const unreadQuery = useQuery({
+    queryKey: qk.unreadCount,
+    queryFn: async () => {
+      const res = await api.get<{ items: any[]; total: number }>(
+        "/api/v1/notifications?only_unread=true&page=1&limit=1"
+      );
+      return res.total as number;
+    },
+    refetchInterval: 30000,
+  });
 
   function onPressNotifications() {
-    try {
-      Alert.alert("Notifications", "No new notifications");
-    } catch {}
+    router.push("/notifications");
   }
 
   function navigateSettings() {
@@ -94,7 +107,13 @@ export default function AppHeaderActions({ side = "left" }: Props) {
             >
               <Ionicons name="notifications-outline" size={22} color={tint} />
             </Pressable>
-            <View style={styles.badgeDot} />
+            {unreadQuery.data && unreadQuery.data > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadQuery.data > 99 ? "99+" : unreadQuery.data}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       )}
@@ -267,6 +286,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#ef4444",
   },
+  badge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: { color: "#fff", fontSize: 10, fontWeight: "600" },
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.2)",

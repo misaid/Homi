@@ -1,14 +1,21 @@
 // app/_layout.tsx
 import { Colors } from "@/constants/Colors";
 import { ThemeProvider as AppThemeProvider } from "@/context/ThemeContext";
+import { useRegisterPushToken } from "@/hooks/useRegisterPushToken";
+import { qk } from "@/lib/queryKeys";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
 import {
   Slot,
   useRootNavigationState,
@@ -40,6 +47,9 @@ function AppShell() {
   const navState = useRootNavigationState();
   const { isSignedIn, isLoaded } = useAuth();
   const didHide = useRef(false);
+  const responseSub = useRef<Notifications.Subscription | null>(null);
+  const receiveSub = useRef<Notifications.Subscription | null>(null);
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -74,6 +84,31 @@ function AppShell() {
       }
     })();
   }, [isLoaded, isSignedIn, navState?.key, segments, router]);
+
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: true,
+      }),
+    });
+    responseSub.current = Notifications.addNotificationResponseReceivedListener(
+      () => {
+        router.push("/notifications");
+      }
+    );
+    receiveSub.current = Notifications.addNotificationReceivedListener(() => {
+      qc.invalidateQueries({ queryKey: qk.unreadCount as any });
+    });
+    return () => {
+      responseSub.current?.remove();
+      receiveSub.current?.remove();
+    };
+  }, [router]);
+
+  // Register push token when signed in
+  useRegisterPushToken();
 
   if (!isLoaded) return null;
 

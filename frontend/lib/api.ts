@@ -69,5 +69,7 @@ export function useApi() {
     patch: <T>(p: string, body?: unknown) =>
       request<T>(p, { method: "PATCH", body: JSON.stringify(body) }),
     del: <T>(p: string) => request<T>(p, { method: "DELETE" }),
+    postForm: <T>(p: string, form: FormData) =>
+      request<T>(p, { method: "POST", body: form as any }),
   };
 }
