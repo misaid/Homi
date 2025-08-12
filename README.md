@@ -1,7 +1,16 @@
 ![hero](assets/hero-illustration.webp)
+
 ## Homi
 
 Homi is a lightweight property management app for small teams and independent landlords. It helps you manage units and tenants, track rent and payments, log issues, and upload photos — with secure auth and a simple, mobile-first UI.
+
+<p align="center">
+  <img src="assets/home.png" alt="Home" height="160" />
+  <img src="assets/rent.png" alt="Rent" height="160" />
+  <img src="assets/tenants.png" alt="Tenants" height="160" />
+  <img src="assets/units.png" alt="Units" height="160" />
+  
+</p>
 
 ## Features
 
