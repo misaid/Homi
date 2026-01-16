@@ -1,5 +1,4 @@
 import { useApi } from "@/lib/api";
-import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 
@@ -9,20 +8,28 @@ export function useRegisterPushToken() {
   const tokenRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (Platform.OS === "web") return; // skip web
+
     let mounted = true;
+
     (async () => {
-      const { status } = await Notifications.getPermissionsAsync();
-      let finalStatus = status;
-      if (finalStatus !== "granted") {
-        const req = await Notifications.requestPermissionsAsync();
-        finalStatus = req.status;
-      }
-      if (finalStatus !== "granted") return;
+      const Notifications = await import("expo-notifications");
       try {
+        const { status } = await Notifications.getPermissionsAsync();
+        let finalStatus = status;
+        if (finalStatus !== "granted") {
+          const req = await Notifications.requestPermissionsAsync();
+          finalStatus = req.status;
+        }
+        if (finalStatus !== "granted") return;
+
         const exp = await Notifications.getExpoPushTokenAsync();
         if (mounted) setToken(exp.data);
-      } catch {}
+      } catch (err) {
+        console.error(err);
+      }
     })();
+
     return () => {
       mounted = false;
     };
@@ -31,6 +38,7 @@ export function useRegisterPushToken() {
   useEffect(() => {
     if (!token) return;
     tokenRef.current = token;
+
     (async () => {
       try {
         await api.post("/api/v1/device_tokens", {
@@ -39,6 +47,7 @@ export function useRegisterPushToken() {
         });
       } catch {}
     })();
+
     return () => {
       const t = tokenRef.current;
       if (!t) return;

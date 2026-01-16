@@ -15,7 +15,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
+// import * as Notifications from "expo-notifications";
 import {
   Slot,
   useRootNavigationState,
@@ -86,29 +86,40 @@ function AppShell() {
   }, [isLoaded, isSignedIn, navState?.key, segments, router]);
 
   useEffect(() => {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: false,
-        shouldPlaySound: false,
-        shouldSetBadge: true,
-      }),
-    });
-    responseSub.current = Notifications.addNotificationResponseReceivedListener(
-      () => {
-        router.push("/notifications");
-      }
-    );
-    receiveSub.current = Notifications.addNotificationReceivedListener(() => {
-      qc.invalidateQueries({ queryKey: qk.unreadCount as any });
-    });
-    return () => {
-      responseSub.current?.remove();
-      receiveSub.current?.remove();
-    };
+    if (Platform.OS === "web") return;
+
+    (async () => {
+      const Notifications = await import("expo-notifications");
+
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: false,
+          shouldPlaySound: false,
+          shouldSetBadge: true,
+        }),
+      });
+
+      const responseSub = Notifications.addNotificationResponseReceivedListener(
+        () => {
+          router.push("/notifications");
+        },
+      );
+      const receiveSub = Notifications.addNotificationReceivedListener(() => {
+        qc.invalidateQueries({ queryKey: qk.unreadCount as any });
+      });
+
+      return () => {
+        responseSub.remove();
+        receiveSub.remove();
+      };
+    })();
   }, [router]);
 
   // Register push token when signed in
-  useRegisterPushToken();
+  // Register push token when signed in (mobile only)
+  if (Platform.OS !== "web") {
+    useRegisterPushToken();
+  }
 
   if (!isLoaded) return null;
 
