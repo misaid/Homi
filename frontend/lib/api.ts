@@ -1,5 +1,6 @@
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@/lib/auth";
 import Constants from "expo-constants";
+import { DEMO, demoRequest } from "./demo";
 
 const RAW_BASE_URL: string | undefined =
   (Constants?.expoConfig?.extra as { API_URL?: string } | undefined)?.API_URL ??
@@ -19,6 +20,7 @@ export function useApi() {
     path: string,
     init: RequestInit = {}
   ): Promise<T> {
+    if (DEMO) return (await demoRequest(path, init)) as T;
     const body = (init as any).body;
     const isFormData =
       typeof FormData !== "undefined" && body instanceof FormData;

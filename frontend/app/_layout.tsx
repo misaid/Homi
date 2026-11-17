@@ -1,9 +1,13 @@
 // app/_layout.tsx
 import { Colors } from "@/constants/Colors";
+import { fontAssets } from "@/constants/fontAssets";
+import { loadBrandFonts } from "@/constants/type";
 import { ThemeProvider as AppThemeProvider } from "@/context/ThemeContext";
 import { useRegisterPushToken } from "@/hooks/useRegisterPushToken";
 import { qk } from "@/lib/queryKeys";
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { ClerkProvider } from "@clerk/clerk-expo";
+import { DEMO } from "@/lib/demo";
+import { useAuth } from "@/lib/auth";
 import {
   DarkTheme,
   DefaultTheme,
@@ -15,6 +19,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import Constants from "expo-constants";
+import { useFonts } from "expo-font";
 // import * as Notifications from "expo-notifications";
 import {
   Slot,
@@ -31,6 +36,9 @@ import { useColorScheme } from "../hooks/useColorScheme";
 
 // Keep splash until auth state is known
 void SplashScreen.preventAutoHideAsync();
+
+// Web: brand fonts come from the shared Google Fonts stylesheet.
+loadBrandFonts();
 
 const tokenCache = {
   async getToken(key: string) {
@@ -146,6 +154,8 @@ function NavigationThemeWrapper() {
 
 export default function RootLayout() {
   const [qc] = useState(() => new QueryClient());
+  // Native: brand fonts are bundled, one family per weight (empty map on web).
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
 
   const pk = Constants.expoConfig?.extra?.["CLERK_PUBLISHABLE_KEY"] as
     | string
@@ -153,13 +163,18 @@ export default function RootLayout() {
   if (!pk)
     console.warn("Missing CLERK_PUBLISHABLE_KEY in Constants.expoConfig.extra");
 
+  const tree = (
+    <QueryClientProvider client={qc}>
+      <AppThemeProvider>
+        <NavigationThemeWrapper />
+      </AppThemeProvider>
+    </QueryClientProvider>
+  );
+  if (!fontsLoaded && !fontError) return null;
+  if (DEMO) return tree;
   return (
     <ClerkProvider publishableKey={pk ?? ""} tokenCache={tokenCache}>
-      <QueryClientProvider client={qc}>
-        <AppThemeProvider>
-          <NavigationThemeWrapper />
-        </AppThemeProvider>
-      </QueryClientProvider>
+      {tree}
     </ClerkProvider>
   );
 }

@@ -1,7 +1,7 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@/lib/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -17,6 +17,7 @@ import {
 } from "react-native";
 
 import { Colors } from "@/constants/Colors";
+import { font } from "@/constants/type";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 type Props = {
@@ -60,7 +61,7 @@ export default function AppHeaderActions({ side = "left" }: Props) {
           hitSlop={8}
           style={styles.btn}
         >
-          <Ionicons name="menu" size={22} color={tint} />
+          <Ionicons name="menu" size={24} color="#1b1840" />
         </Pressable>
       )}
 
@@ -74,7 +75,7 @@ export default function AppHeaderActions({ side = "left" }: Props) {
               hitSlop={8}
               style={styles.btn}
             >
-              <Ionicons name="notifications-outline" size={22} color={tint} />
+              <Ionicons name="notifications-outline" size={24} color="#1b1840" />
             </Pressable>
             {unreadQuery.data && unreadQuery.data > 0 && (
               <View style={styles.badge}>
@@ -120,7 +121,7 @@ export default function AppHeaderActions({ side = "left" }: Props) {
                 <Ionicons
                   name="settings-outline"
                   size={18}
-                  color="#111827"
+                  color="#1b1840"
                   style={{ marginRight: 8 }}
                 />
                 <Text
@@ -143,7 +144,7 @@ export default function AppHeaderActions({ side = "left" }: Props) {
                 <Ionicons
                   name="information-circle-outline"
                   size={18}
-                  color="#111827"
+                  color="#1b1840"
                   style={{ marginRight: 8 }}
                 />
                 <Text
@@ -174,7 +175,7 @@ export default function AppHeaderActions({ side = "left" }: Props) {
                 <Ionicons
                   name="exit-outline"
                   size={18}
-                  color="#111827"
+                  color="#1b1840"
                   style={{ marginRight: 8 }}
                 />
                 <Text
@@ -214,27 +215,29 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: "absolute",
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    paddingHorizontal: 3,
-    borderRadius: 8,
-    backgroundColor: "#ef4444",
+    top: 1,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: "#5b4fe0",
+    borderWidth: 2,
+    borderColor: "#f6f5fc",
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeText: { color: "#fff", fontSize: 10, fontWeight: "600" },
+  badgeText: { ...font("body", 700), color: "#fff", fontSize: 10, lineHeight: 12 },
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.2)",
+    backgroundColor: "rgba(27,24,64,0.25)",
     paddingTop: 64,
     paddingHorizontal: 12,
   },
   menu: {
     alignSelf: "flex-start",
     backgroundColor: "#ffffff",
-    borderRadius: 10,
+    borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 8,
     minWidth: 180,
@@ -247,10 +250,11 @@ const styles = StyleSheet.create({
   menuTitle: {
     paddingHorizontal: 8,
     paddingVertical: 6,
-    color: "#6b7280",
+    ...font("body", 700),
+    color: "#6b6890",
     fontSize: 12,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
+    letterSpacing: 0.7,
   },
   menuItem: {
     flexDirection: "row",
@@ -259,5 +263,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
   },
-  menuItemText: { fontSize: 14, color: "#111827" },
+  menuItemText: { ...font("body", 500), fontSize: 15, color: "#1b1840" },
 });

@@ -1,180 +1,100 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { focusRing, m } from "./theme";
 
-type Props = {
-  onGoToPricing?: () => void;
-  onGoToFAQ?: () => void;
-};
+type Props = { onGoToPricing?: () => void; onGoToFAQ?: () => void };
 
 export default function NavBar({ onGoToPricing, onGoToFAQ }: Props) {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const wide = width >= 720;
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.content}>
-        <Text accessibilityRole="header" style={styles.logo}>
-          Homi
-        </Text>
-
-        <View style={styles.spacer} />
-
-        <View style={styles.linksRow}>
-          <NavLink
-            label="Pricing"
-            onPress={onGoToPricing}
-            accessibilityLabel="Go to pricing"
-          />
-          <NavLink
-            label="FAQ"
-            onPress={onGoToFAQ}
-            accessibilityLabel="Go to frequently asked questions"
-          />
+    <View style={s.wrapper}>
+      <View style={s.content}>
+        <View style={s.brand}>
+          <View style={s.mark}>
+            <Ionicons name="home" size={16} color="#fff" />
+          </View>
+          <Text accessibilityRole="header" style={s.logo}>
+            Homi
+          </Text>
         </View>
-
-        <View style={styles.actionsRow}>
-          <ButtonLink
-            label="Log in"
-            variant="ghost"
-            onPress={() => router.push("/(auth)/sign-in")}
-            accessibilityLabel="Log in"
-          />
-          <ButtonLink
-            label="Get started"
-            variant="primary"
-            onPress={() => router.push("/(auth)/sign-up")}
-            accessibilityLabel="Get started"
-          />
-        </View>
+        <View style={{ flex: 1 }} />
+        {wide && (
+          <View style={s.links}>
+            <Link label="Pricing" onPress={onGoToPricing} />
+            <Link label="FAQ" onPress={onGoToFAQ} />
+            <Link label="Log in" onPress={() => router.push("/(auth)/sign-in")} />
+          </View>
+        )}
+        <Btn label="Get started" onPress={() => router.push("/(auth)/sign-up")} />
       </View>
     </View>
   );
 }
 
-function NavLink({
-  label,
-  onPress,
-  accessibilityLabel,
-}: {
-  label: string;
-  onPress?: () => void;
-  accessibilityLabel?: string;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
+function Link({ label, onPress }: { label: string; onPress?: () => void }) {
+  const [h, setH] = useState(false);
+  const [f, setF] = useState(false);
   return (
     <Pressable
-      onPress={onPress}
       accessibilityRole="link"
-      accessibilityLabel={accessibilityLabel ?? label}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={[
-        styles.navLink,
-        hovered && styles.hovered,
-        focused && styles.focused,
-      ]}
+      onPress={onPress}
+      onHoverIn={() => setH(true)}
+      onHoverOut={() => setH(false)}
+      onFocus={() => setF(true)}
+      onBlur={() => setF(false)}
+      style={[s.link, f && focusRing]}
     >
-      <Text style={styles.navLinkText}>{label}</Text>
+      <Text style={[s.linkText, h && { color: m.accent }]}>{label}</Text>
     </Pressable>
   );
 }
 
-function ButtonLink({
-  label,
-  onPress,
-  accessibilityLabel,
-  variant = "primary",
-}: {
-  label: string;
-  onPress: () => void;
-  accessibilityLabel?: string;
-  variant?: "primary" | "ghost";
-}) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const base = [
-    styles.btn,
-    variant === "primary" ? styles.btnPrimary : styles.btnGhost,
-  ];
+function Btn({ label, onPress }: { label: string; onPress: () => void }) {
+  const [h, setH] = useState(false);
+  const [f, setF] = useState(false);
   return (
     <Pressable
-      onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={[base, hovered && { opacity: 0.9 }, focused && styles.focused]}
+      onPress={onPress}
+      onHoverIn={() => setH(true)}
+      onHoverOut={() => setH(false)}
+      onFocus={() => setF(true)}
+      onBlur={() => setF(false)}
+      style={[s.btn, h && { backgroundColor: m.accentDark }, f && focusRing]}
     >
-      <Text
-        style={
-          variant === "primary" ? styles.btnPrimaryText : styles.btnGhostText
-        }
-      >
-        {label}
-      </Text>
+      <Text style={s.btnText}>{label}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    width: "100%",
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
+const s = StyleSheet.create({
+  wrapper: { width: "100%", backgroundColor: m.paper },
   content: {
-    maxWidth: 1200,
+    maxWidth: m.max,
     width: "100%",
     alignSelf: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",
   },
-  logo: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111",
-  },
-  spacer: { flex: 1 },
-  linksRow: {
-    flexDirection: "row",
-    gap: 16,
-    marginRight: 12,
-  },
-  actionsRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  navLink: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  hovered: { opacity: 0.9 },
-  focused: Platform.select({
-    web: { outlineWidth: 2, outlineColor: "#3b82f6", outlineStyle: "solid" },
-    default: {},
-  }),
-  navLinkText: { color: "#111", fontSize: 14 },
-  btn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  mark: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: m.accent,
     alignItems: "center",
     justifyContent: "center",
   },
-  btnPrimary: { backgroundColor: "#3b82f6" },
-  btnPrimaryText: { color: "#fff", fontWeight: "700" },
-  btnGhost: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  btnGhostText: { color: "#111", fontWeight: "600" },
+  logo: { fontFamily: m.display, fontSize: 22, fontWeight: "800", color: m.ink, letterSpacing: -0.5 },
+  links: { flexDirection: "row", gap: 6, marginRight: 14 },
+  link: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  linkText: { fontFamily: m.body, fontSize: 15, fontWeight: "500", color: m.inkSoft },
+  btn: { backgroundColor: m.accent, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 999 },
+  btnText: { fontFamily: m.body, color: "#fff", fontWeight: "700", fontSize: 15 },
 });

@@ -1,42 +1,27 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { focusRing, m } from "./theme";
 
 const plans = [
-  {
-    name: "Starter",
-    price: "$0",
-    desc: "Manage up to 3 units.",
-  },
-  {
-    name: "Pro",
-    price: "$19",
-    desc: "For growing portfolios.",
-  },
-  {
-    name: "Business",
-    price: "$49",
-    desc: "For small teams and agencies.",
-  },
+  { name: "Starter", price: "$0", desc: "Manage up to 3 units.", feats: ["3 units", "Tenants and rent tracking", "Issue log"] },
+  { name: "Pro", price: "$19", desc: "For growing portfolios.", feats: ["Unlimited units", "Photo uploads", "Push notifications"], hot: true },
+  { name: "Business", price: "$49", desc: "For small teams and agencies.", feats: ["Everything in Pro", "Invite teammates", "Per-organization scoping"] },
 ];
 
 export default function Pricing() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>
+    <View style={s.wrapper}>
+      <View style={s.content}>
+        <Text accessibilityRole="header" style={[s.title, { fontSize: width >= 900 ? 48 : 34 }]}>
           Simple pricing
         </Text>
-        <View style={styles.row}>
+        <Text style={s.sub}>Start free. Upgrade when your portfolio does.</Text>
+        <View style={s.row}>
           {plans.map((p) => (
-            <PlanCard
-              key={p.name}
-              name={p.name}
-              price={p.price}
-              desc={p.desc}
-              onSelect={() => router.push("/(auth)/sign-up")}
-            />
+            <Plan key={p.name} {...p} onSelect={() => router.push("/(auth)/sign-up")} />
           ))}
         </View>
       </View>
@@ -44,77 +29,63 @@ export default function Pricing() {
   );
 }
 
-function PlanCard({
-  name,
-  price,
-  desc,
-  onSelect,
-}: {
-  name: string;
-  price: string;
-  desc: string;
-  onSelect: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
+function Plan({ name, price, desc, feats, hot, onSelect }: any) {
+  const [h, setH] = useState(false);
+  const [f, setF] = useState(false);
+  const fg = hot ? m.onDark : m.ink;
+  const mu = hot ? m.onDarkMuted : m.inkSoft;
   return (
-    <View
-      style={[styles.card, hovered && { borderColor: "#3b82f6" }]}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <Text style={styles.planName}>{name}</Text>
-      <Text style={styles.planPrice}>{price}/mo</Text>
-      <Text style={styles.planDesc}>{desc}</Text>
+    <View style={[s.card, hot && { backgroundColor: m.ink, borderColor: m.ink }]}>
+      <Text style={[s.planName, { color: fg }]}>{name}</Text>
+      <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: 8 }}>
+        <Text style={[s.price, { color: fg }]}>{price}</Text>
+        <Text style={[s.per, { color: mu }]}>/mo</Text>
+      </View>
+      <Text style={[s.desc, { color: mu }]}>{desc}</Text>
+      <View style={{ gap: 10, marginVertical: 24 }}>
+        {feats.map((t: string) => (
+          <Text key={t} style={[s.feat, { color: fg }]}>
+            ✓  {t}
+          </Text>
+        ))}
+      </View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Choose ${name}`}
         onPress={onSelect}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={[styles.btn, styles.btnPrimary, focused && styles.focused]}
+        onHoverIn={() => setH(true)}
+        onHoverOut={() => setH(false)}
+        onFocus={() => setF(true)}
+        onBlur={() => setF(false)}
+        style={[
+          s.btn,
+          hot
+            ? { backgroundColor: h ? "#fff" : m.wash }
+            : { backgroundColor: h ? m.accentDark : m.accent },
+          f && focusRing,
+        ]}
       >
-        <Text style={styles.btnPrimaryText}>Get started</Text>
+        <Text style={[s.btnText, { color: hot ? m.ink : "#fff" }]}>Get started</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { width: "100%", backgroundColor: "#fff" },
-  content: {
-    maxWidth: 1200,
-    width: "100%",
-    alignSelf: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 56,
-  },
-  title: { fontSize: 24, fontWeight: "800", color: "#111", marginBottom: 16 },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+const s = StyleSheet.create({
+  wrapper: { width: "100%", backgroundColor: m.paper },
+  content: { maxWidth: m.max, width: "100%", alignSelf: "center", paddingHorizontal: 20, paddingVertical: 96 },
+  title: { fontFamily: m.display, fontWeight: "800", color: m.ink, letterSpacing: -1.2 },
+  sub: { fontFamily: m.body, fontSize: 18, color: m.inkSoft, marginTop: 12, marginBottom: 48 },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 20 },
   card: {
-    width: "100%",
-    maxWidth: 380,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: "#fff",
+    flexGrow: 1, flexBasis: 280, borderRadius: 28, borderWidth: 1.5, borderColor: m.line,
+    padding: 32, backgroundColor: "#fff",
   },
-  planName: { fontSize: 16, fontWeight: "700", color: "#111" },
-  planPrice: { fontSize: 28, fontWeight: "800", marginTop: 4, color: "#111" },
-  planDesc: { color: "#374151", marginTop: 6 },
-  btn: {
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  focused: Platform.select({
-    web: { outlineWidth: 2, outlineColor: "#3b82f6", outlineStyle: "solid" },
-    default: {},
-  }),
-  btnPrimary: { backgroundColor: "#3b82f6" },
-  btnPrimaryText: { color: "#fff", fontWeight: "700" },
+  planName: { fontFamily: m.display, fontSize: 20, fontWeight: "700" },
+  price: { fontFamily: m.display, fontSize: 56, fontWeight: "800", letterSpacing: -2 },
+  per: { fontFamily: m.body, fontSize: 16, marginLeft: 4 },
+  desc: { fontFamily: m.body, fontSize: 16, marginTop: 4 },
+  feat: { fontFamily: m.body, fontSize: 15 },
+  btn: { paddingVertical: 14, borderRadius: 999, alignItems: "center" },
+  btnText: { fontFamily: m.body, fontWeight: "700", fontSize: 15 },
 });

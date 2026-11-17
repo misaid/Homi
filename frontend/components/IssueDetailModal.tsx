@@ -1,18 +1,12 @@
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
+import { Badge, Button, Segmented, SelectRow, Sheet, SheetHeader } from "@/components/ui";
+import { palette, type StatusTone } from "@/constants/theme";
+import { type } from "@/constants/type";
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import type { Issue } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 
 type Props = {
   issue: Issue | null;
@@ -20,14 +14,27 @@ type Props = {
   onClose: () => void;
 };
 
+const STATUSES = [
+  { value: "open", label: "Open" },
+  { value: "in_progress", label: "In progress" },
+  { value: "resolved", label: "Resolved" },
+  { value: "closed", label: "Closed" },
+] as const;
+
+function severityTone(v?: Issue["severity"]): StatusTone {
+  return v === "high" || v === "critical" ? "danger" : v === "medium" ? "warn" : "neutral";
+}
+
+function formatOpened(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function IssueDetailModal({ issue, visible, onClose }: Props) {
   const api = useApi();
   const qc = useQueryClient();
-  const colorScheme = useColorScheme();
-  const cardBg = Colors[colorScheme ?? "light"].card;
-  const border = Colors[colorScheme ?? "light"].border;
-  const textColor = Colors[colorScheme ?? "light"].text;
-  const mutedText = Colors[colorScheme ?? "light"].mutedText;
   const [title, setTitle] = useState<string>(issue?.title ?? "");
   const [status, setStatus] = useState<Issue["status"]>(
     issue?.status ?? "open"
@@ -101,270 +108,120 @@ export default function IssueDetailModal({ issue, visible, onClose }: Props) {
         tenant_id: tenantId ?? null,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.issues({}) as any });
+      qc.invalidateQueries({ queryKey: ["issues"] });
       onClose();
     },
   });
 
+  const unitOptions = useMemo(
+    () => [
+      { value: null as string | null, label: "Unassigned" },
+      ...(unitsQuery.data ?? []).map((u) => ({ value: u.id as string | null, label: u.name })),
+    ],
+    [unitsQuery.data]
+  );
+  // Only tenants of the chosen unit (plus whoever is already selected).
+  const tenantOptions = useMemo(
+    () => [
+      { value: null as string | null, label: "Unassigned" },
+      ...(tenantsQuery.data ?? [])
+        .filter((t) => !unitId || t.unit_id === unitId || t.id === tenantId)
+        .map((t) => ({ value: t.id as string | null, label: t.full_name })),
+    ],
+    [tenantsQuery.data, unitId, tenantId]
+  );
+
+  const blocked = !!mismatch || !!titleError || updateMutation.isPending;
+  const opened = formatOpened(issue?.created_at);
+
   return (
-    <Modal
+    <Sheet
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      header={
+        <SheetHeader
+          label="Issue"
+          onClose={onClose}
+          right={
+            issue ? (
+              <Badge
+                label={issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1)}
+                tone={severityTone(issue.severity)}
+                style={{ alignSelf: "center" }}
+              />
+            ) : null
+          }
+        />
+      }
+      footer={
+        <Button
+          label={updateMutation.isPending ? "Saving..." : "Save changes"}
+          full
+          disabled={blocked}
+          onPress={() => !mismatch && !titleError && updateMutation.mutate()}
+        />
+      }
     >
-      <View style={styles.backdrop}>
-        <View
-          style={[
-            styles.card,
-            styles.responsiveCard,
-            { backgroundColor: cardBg },
-          ]}
-        >
-          <Text style={[styles.label, { color: mutedText }]}>Title</Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                borderColor: border,
-                backgroundColor: cardBg,
-                color: textColor,
-              },
-            ]}
-            placeholder="Title"
-            placeholderTextColor={mutedText}
-            value={title}
-            onChangeText={setTitle}
-            editable={!updateMutation.isPending}
-          />
-          {!!titleError && <Text style={styles.error}>{titleError}</Text>}
-          {!!issue?.description && (
-            <Text
-              style={[
-                styles.desc,
-                { color: Colors[colorScheme ?? "light"].mutedText },
-              ]}
-            >
-              {issue?.description}
-            </Text>
-          )}
+      <TextInput
+        style={[styles.title, Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : null]}
+        placeholder="Issue title"
+        placeholderTextColor={palette.faint}
+        accessibilityLabel="Issue title"
+        value={title}
+        onChangeText={setTitle}
+        editable={!updateMutation.isPending}
+      />
+      {!!titleError && <Text style={styles.error}>{titleError}</Text>}
+      {!!issue?.description && <Text style={styles.desc}>{issue.description}</Text>}
+      {opened ? <Text style={styles.meta}>Opened {opened}</Text> : null}
 
-          <Text
-            style={[
-              styles.label,
-              { color: Colors[colorScheme ?? "light"].mutedText },
-            ]}
-          >
-            Status
-          </Text>
-          <View style={styles.row}>
-            {(["open", "in_progress", "resolved", "closed"] as const).map(
-              (st) => (
-                <Pressable
-                  key={st}
-                  onPress={() => setStatus(st)}
-                  style={[
-                    styles.chip,
-                    status === st ? styles.chipActive : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      status === st ? styles.chipTextActive : null,
-                    ]}
-                  >
-                    {st === "in_progress"
-                      ? "In progress"
-                      : st.charAt(0).toUpperCase() + st.slice(1)}
-                  </Text>
-                </Pressable>
-              )
-            )}
-          </View>
+      <Text style={styles.label}>Status</Text>
+      <Segmented
+        options={STATUSES}
+        value={status}
+        onChange={setStatus}
+        disabled={updateMutation.isPending}
+      />
 
-          <Text
-            style={[
-              styles.label,
-              { color: Colors[colorScheme ?? "light"].mutedText },
-            ]}
-          >
-            Unit
-          </Text>
-          <View style={styles.rowWrap}>
-            <Pressable
-              onPress={() => setUnitId(null)}
-              style={[styles.chip, unitId == null ? styles.chipActive : null]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  unitId == null ? styles.chipTextActive : null,
-                ]}
-              >
-                Unassigned
-              </Text>
-            </Pressable>
-            {unitsQuery.data?.map((u) => (
-              <Pressable
-                key={u.id}
-                onPress={() => setUnitId(u.id)}
-                style={[
-                  styles.chip,
-                  unitId === u.id ? styles.chipActive : null,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    unitId === u.id ? styles.chipTextActive : null,
-                  ]}
-                >
-                  {u.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text
-            style={[
-              styles.label,
-              { color: Colors[colorScheme ?? "light"].mutedText },
-            ]}
-          >
-            Tenant
-          </Text>
-          <View style={styles.rowWrap}>
-            <Pressable
-              onPress={() => setTenantId(null)}
-              style={[styles.chip, tenantId == null ? styles.chipActive : null]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  tenantId == null ? styles.chipTextActive : null,
-                ]}
-              >
-                Unassigned
-              </Text>
-            </Pressable>
-            {tenantsQuery.data?.map((t) => (
-              <Pressable
-                key={t.id}
-                onPress={() => setTenantId(t.id)}
-                style={[
-                  styles.chip,
-                  tenantId === t.id ? styles.chipActive : null,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    tenantId === t.id ? styles.chipTextActive : null,
-                  ]}
-                >
-                  {t.full_name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {!!mismatch && <Text style={styles.error}>{mismatch}</Text>}
-
-          <View
-            style={[styles.row, { justifyContent: "flex-end", marginTop: 12 }]}
-          >
-            <Pressable
-              onPress={onClose}
-              style={[styles.btn, styles.btnGhost]}
-              disabled={updateMutation.isPending}
-            >
-              <Text style={[styles.btnText, styles.btnGhostText]}>Close</Text>
-            </Pressable>
-            <Pressable
-              onPress={() =>
-                !mismatch && !titleError && updateMutation.mutate()
-              }
-              disabled={!!mismatch || !!titleError || updateMutation.isPending}
-              style={[
-                styles.btn,
-                styles.btnPrimary,
-                !!mismatch || !!titleError || updateMutation.isPending
-                  ? styles.btnDisabled
-                  : null,
-              ]}
-            >
-              <Text style={styles.btnText}>
-                {updateMutation.isPending ? "Saving..." : "Save"}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+      <View style={styles.group}>
+        <SelectRow
+          label="Unit"
+          options={unitOptions}
+          value={unitId ?? null}
+          onChange={(v) => {
+            setUnitId(v);
+            // Drop a tenant who doesn't live in the newly chosen unit.
+            const t = tenantsQuery.data?.find((x) => x.id === tenantId);
+            if (v && t?.unit_id && t.unit_id !== v) setTenantId(null);
+          }}
+        />
+        <SelectRow
+          label="Tenant"
+          options={tenantOptions}
+          value={tenantId ?? null}
+          onChange={setTenantId}
+          last
+        />
       </View>
-    </Modal>
+      {!!mismatch && <Text style={styles.error}>{mismatch}</Text>}
+      {!!updateMutation.error && (
+        <Text style={styles.error}>{(updateMutation.error as Error).message}</Text>
+      )}
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
+  title: { ...type.title, color: palette.ink, paddingVertical: 4, paddingHorizontal: 0, height: 36 },
+  desc: { ...type.body, color: palette.inkSoft, marginTop: 4 },
+  meta: { ...type.caption, color: palette.muted, marginTop: 6 },
+  label: { ...type.section, color: palette.muted, marginTop: 20, marginBottom: 8 },
+  group: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
   },
-  card: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 8,
-    width: "100%",
-  },
-  responsiveCard: {
-    maxWidth: 560,
-    alignSelf: "center",
-  },
-  desc: { fontSize: 14, color: "#374151", marginBottom: 12 },
-  label: { fontSize: 12, color: "#374151", marginTop: 8, marginBottom: 4 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rowWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 8,
-  },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  chip: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  chipActive: { backgroundColor: "#0a7ea4", borderColor: "#0a7ea4" },
-  chipText: { fontSize: 12, color: "#111827" },
-  chipTextActive: { color: "#fff", fontWeight: "700" },
-  btn: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  btnPrimary: { backgroundColor: "#0a7ea4" },
-  btnGhost: {
-    backgroundColor: "#f3f4f6",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-  },
-  btnText: { color: "#fff", fontWeight: "700" },
-  btnGhostText: { color: "#111827" },
-  btnDisabled: { opacity: 0.6 },
-  error: { color: "#ef4444", marginTop: 4 },
+  error: { ...type.caption, color: "#b42318", marginTop: 6 },
 });

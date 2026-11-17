@@ -4,6 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import { Pressable } from "react-native";
 
 import { Colors } from "@/constants/Colors";
+import { type } from "@/constants/type";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 function HeaderBackButton() {
@@ -31,7 +32,10 @@ export default function SettingsLayout() {
         headerShown: true,
         headerBackTitleVisible: false,
         headerTintColor: tint,
-        headerTitleAlign: "left",
+        headerTitleAlign: "center",
+        headerTitleStyle: { ...type.heading, color: Colors[colorScheme ?? "light"].text },
+        headerStyle: { backgroundColor: Colors[colorScheme ?? "light"].pageBackground },
+        headerShadowVisible: false,
         headerLeft: () => <HeaderBackButton />,
       }}
     >

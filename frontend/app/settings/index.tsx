@@ -1,15 +1,12 @@
 // app/settings/index.tsx
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
-import { useAuth } from "@clerk/clerk-expo";
+import { Button, Card, EmptyState, SectionHeader } from "@/components/ui";
+import { palette } from "@/constants/theme";
+import { type } from "@/constants/type";
+import { useAuth } from "@/lib/auth";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Button,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useApi } from "@/lib/api";
 
@@ -52,61 +49,45 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Settings</Text>
-
+    <ScrollView style={{ backgroundColor: palette.page }} contentContainerStyle={styles.container}>
+      <SectionHeader title="Account" style={{ marginTop: 0 }} />
       {loading ? (
-        <ActivityIndicator />
+        <Card style={styles.loading}>
+          <ActivityIndicator color={palette.tint} />
+        </Card>
       ) : error ? (
-        <Text style={styles.error}>{error}</Text>
+        <Card padded={false}>
+          <EmptyState icon="cloud-offline-outline" tone="danger" title="Couldn't load your profile" body={error} />
+        </Card>
       ) : (
-        <View style={styles.section}>
-          <Text style={styles.label}>userId</Text>
-          <Text style={styles.value}>{me?.userId || "-"}</Text>
-          <Text style={[styles.label, { marginTop: 12 }]}>orgId</Text>
-          <Text style={styles.value}>{me?.orgId || "-"}</Text>
-        </View>
+        <Card padded={false}>
+          <Row label="User ID" value={me?.userId || "–"} />
+          <Row label="Organization" value={me?.orgId || "–"} divider />
+        </Card>
       )}
 
-      <View style={styles.footer}>
-        <Button title="Sign out" onPress={handleSignOut} />
-      </View>
+      <SectionHeader title="Session" />
+      <Button label="Sign out" icon="log-out-outline" variant="danger" full onPress={handleSignOut} />
+    </ScrollView>
+  );
+}
+
+function Row({ label, value, divider }: { label: string; value: string; divider?: boolean }) {
+  return (
+    <View style={[styles.row, divider && styles.divider]}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.value} numberOfLines={1} selectable>
+        {value}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 16,
-    justifyContent: "center",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  section: {
-    alignSelf: "center",
-    minWidth: 240,
-  },
-  label: {
-    color: "#666",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  error: {
-    color: "#c00",
-    textAlign: "center",
-  },
-  footer: {
-    alignSelf: "center",
-    marginTop: 16,
-  },
+  container: { padding: 16, paddingBottom: 40, alignSelf: "center", width: "100%", maxWidth: 560 },
+  loading: { alignItems: "center", paddingVertical: 28 },
+  row: { flexDirection: "row", alignItems: "center", gap: 16, minHeight: 52, paddingHorizontal: 16 },
+  divider: { borderTopWidth: 1, borderTopColor: palette.border },
+  label: { ...type.body, color: palette.muted },
+  value: { ...type.label, color: palette.ink, flex: 1, textAlign: "right" },
 });

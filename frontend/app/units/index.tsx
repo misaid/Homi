@@ -1,22 +1,20 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
 import { UnitCard } from "@/components/UnitCard";
+import { Button, EmptyState, Fab, SearchField } from "@/components/ui";
+import { palette } from "@/constants/theme";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useApi } from "@/lib/api";
 import type { Paginated, Unit } from "@/lib/types";
-import { useAuth } from "@clerk/clerk-expo";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,9 +24,6 @@ const PAGE_SIZE = 20;
 export default function UnitsScreen() {
   const colorScheme = useColorScheme();
   const pageBg = Colors[colorScheme ?? "light"].pageBackground;
-  const cardBg = Colors[colorScheme ?? "light"].card;
-  const border = Colors[colorScheme ?? "light"].border;
-  const textMuted = Colors[colorScheme ?? "light"].mutedText;
   const api = useApi();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -58,7 +53,6 @@ export default function UnitsScreen() {
       return api.get<Paginated<Unit>>(`/api/v1/units?${params.toString()}`);
     },
     enabled: isLoaded && isSignedIn,
-    keepPreviousData: true,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
     staleTime: 30_000,
@@ -115,9 +109,12 @@ export default function UnitsScreen() {
         keyExtractor={(item) => String(item.id)}
         contentInsetAdjustmentBehavior="automatic"
         ListHeaderComponent={
-          <View style={styles.responsiveCenter}>
-            <HeaderSearch value={search} onChange={setSearch} />
-          </View>
+          <SearchField
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search units"
+            style={styles.search}
+          />
         }
         renderItem={({ item }) => (
           <UnitCard
@@ -156,7 +153,7 @@ export default function UnitsScreen() {
         contentContainerStyle={[
           styles.listContent,
           styles.responsivePad,
-          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 72 },
+          { paddingTop: insets.top + 4, paddingBottom: insets.bottom + 96 },
         ]}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -167,129 +164,43 @@ export default function UnitsScreen() {
         ListEmptyComponent={() => {
           const showEmpty =
             !query.isPending && (query.data?.items?.length ?? 0) === 0;
-          return showEmpty ? (
-            <View style={styles.center}>
-              <Text style={[styles.muted, { color: textMuted }]}>
-                No units found
-              </Text>
-            </View>
-          ) : null;
+          if (!showEmpty) return null;
+          return debounced ? (
+            <EmptyState
+              icon="search-outline"
+              title="No units found"
+              body={`Nothing matches "${debounced}".`}
+            />
+          ) : (
+            <EmptyState
+              icon="business-outline"
+              title="Add your first unit"
+              body="Units hold your tenants, rent schedule and maintenance issues."
+              action={<Button label="Add unit" icon="add" onPress={() => router.push("/units/new")} />}
+            />
+          );
         }}
         ListFooterComponent={
           query.isFetching ? (
             <View style={styles.footerLoading}>
-              <ActivityIndicator />
+              <ActivityIndicator color={palette.tint} />
             </View>
           ) : null
         }
       />
-      <Pressable style={styles.fab} onPress={() => router.push("/units/new")}>
-        <Text style={styles.fabText}>Add</Text>
-      </Pressable>
+      <Fab
+        accessibilityLabel="Add unit"
+        bottom={16}
+        onPress={() => router.push("/units/new")}
+      />
     </View>
   );
 }
 
-const HeaderSearch = memo(function HeaderSearch({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <View style={styles.searchContainer}>
-      <View style={styles.searchWrap}>
-        <Ionicons
-          name="search-outline"
-          size={18}
-          color="#6b7280"
-          style={styles.searchIcon}
-        />
-        <TextInput
-          value={value}
-          onChangeText={onChange}
-          placeholder="Search units..."
-          placeholderTextColor="#9ca3af"
-          style={styles.searchInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-          returnKeyType="search"
-          blurOnSubmit={false}
-        />
-      </View>
-    </View>
-  );
-});
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  muted: { color: "#666", marginTop: 8 },
-  errorText: {
-    color: "#b00020",
-    marginBottom: 12,
-    textAlign: "center",
-    paddingHorizontal: 16,
-  },
-  retryBtn: {
-    backgroundColor: "#1b73e8",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-  },
-  retryText: { color: "white", fontWeight: "600" },
-  listContent: { paddingVertical: 4, paddingBottom: 72 },
-  responsiveCenter: {
-    alignSelf: "center",
-    width: "100%",
-    maxWidth: 1100,
-  },
-  responsivePad: {
-    alignSelf: "center",
-    width: "100%",
-    maxWidth: 1100,
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  searchInput: {
-    flex: 1,
-    paddingRight: 10,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    height: 44,
-    paddingLeft: 10,
-  },
-  searchIcon: { marginRight: 6 },
+  listContent: { paddingBottom: 96 },
+  responsivePad: { alignSelf: "center", width: "100%", maxWidth: 1100 },
+  search: { marginHorizontal: 16, marginBottom: 8 },
   footerLoading: { paddingVertical: 16 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    backgroundColor: "#0a7ea4",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  fabText: { color: "#fff", fontWeight: "700" },
 });

@@ -1,19 +1,13 @@
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
+import { Button, Field, Segmented, SelectRow, Sheet, SheetHeader } from "@/components/ui";
+import { palette } from "@/constants/theme";
+import { type } from "@/constants/type";
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import type { Issue } from "@/lib/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import * as RN from "react-native";
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 type CreateIssueModalProps = {
   visible: boolean;
@@ -21,17 +15,20 @@ type CreateIssueModalProps = {
   onCreated: (issue: Issue) => void;
 };
 
+const SEVERITIES = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+] as const;
+
 export default function CreateIssueModal({
   visible,
   onClose,
   onCreated,
 }: CreateIssueModalProps) {
   const api = useApi();
-  const colorScheme = useColorScheme();
-  const cardBg = Colors[colorScheme ?? "light"].card;
-  const border = Colors[colorScheme ?? "light"].border;
-  const textMuted = Colors[colorScheme ?? "light"].mutedText;
   const [title, setTitle] = useState("");
+  const [touched, setTouched] = useState(false);
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<"low" | "medium" | "high">("low");
   const [unitId, setUnitId] = useState<string | null>(null);
@@ -93,6 +90,7 @@ export default function CreateIssueModal({
       }),
     onSuccess: (created) => {
       setTitle("");
+      setTouched(false);
       setDescription("");
       setSeverity("low");
       setUnitId(null);
@@ -110,249 +108,106 @@ export default function CreateIssueModal({
     },
   });
 
+  const unitOptions = useMemo(
+    () => [
+      { value: null as string | null, label: "Unassigned" },
+      ...(unitsQuery.data ?? []).map((u) => ({ value: u.id as string | null, label: u.name })),
+    ],
+    [unitsQuery.data]
+  );
+  // Only tenants of the chosen unit (plus whoever is already selected).
+  const tenantOptions = useMemo(
+    () => [
+      { value: null as string | null, label: "Unassigned" },
+      ...(tenantsQuery.data ?? [])
+        .filter((t) => !unitId || t.unit_id === unitId || t.id === tenantId)
+        .map((t) => ({ value: t.id as string | null, label: t.full_name })),
+    ],
+    [tenantsQuery.data, unitId, tenantId]
+  );
+
+  const blocked = !canSubmit || !!mismatch || mutation.isPending;
+
   return (
-    <Modal
+    <Sheet
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      header={<SheetHeader label="New issue" onClose={onClose} />}
+      footer={
+        <Button
+          label={mutation.isPending ? "Creating..." : "Create issue"}
+          accessibilityLabel="Submit new issue"
+          full
+          disabled={blocked}
+          onPress={() => {
+            setTouched(true);
+            if (!blocked) mutation.mutate();
+          }}
+        />
+      }
     >
-      <View style={styles.backdrop}>
-        <View
-          style={[
-            styles.card,
-            styles.responsiveCard,
-            { backgroundColor: cardBg },
-          ]}
-        >
-          <Text style={styles.title}>New Issue</Text>
-
-          <TextInput
-            style={[
-              styles.input,
-              {
-                borderColor: border,
-                backgroundColor: cardBg,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            placeholder="Title"
-            value={title}
-            onChangeText={setTitle}
-            editable={!mutation.isPending}
-            autoFocus
-          />
-          {!!titleError && <Text style={styles.errorText}>{titleError}</Text>}
-
-          <TextInput
-            style={[
-              styles.input,
-              styles.textarea,
-              {
-                borderColor: border,
-                backgroundColor: cardBg,
-                color: Colors[colorScheme ?? "light"].text,
-              },
-            ]}
-            placeholder="Description (optional)"
-            value={description}
-            onChangeText={setDescription}
-            editable={!mutation.isPending}
-            multiline
-            numberOfLines={3}
-          />
-
-          <Text style={styles.label}>Severity</Text>
-          <View style={styles.row}>
-            {(["low", "medium", "high"] as const).map((opt) => (
-              <Pressable
-                key={opt}
-                onPress={() => setSeverity(opt)}
-                style={[
-                  styles.chip,
-                  severity === opt ? styles.chipActive : null,
-                ]}
-                disabled={mutation.isPending}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    severity === opt ? styles.chipTextActive : null,
-                  ]}
-                >
-                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Unit</Text>
-          <View style={styles.rowWrap}>
-            <Pressable
-              onPress={() => setUnitId(null)}
-              style={[styles.chip, unitId == null ? styles.chipActive : null]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  unitId == null ? styles.chipTextActive : null,
-                ]}
-              >
-                Unassigned
-              </Text>
-            </Pressable>
-            {unitsQuery.data?.map((u) => (
-              <Pressable
-                key={u.id}
-                onPress={() => setUnitId(u.id)}
-                style={[
-                  styles.chip,
-                  unitId === u.id ? styles.chipActive : null,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    unitId === u.id ? styles.chipTextActive : null,
-                  ]}
-                >
-                  {u.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Tenant</Text>
-          <View style={styles.rowWrap}>
-            <Pressable
-              onPress={() => setTenantId(null)}
-              style={[styles.chip, tenantId == null ? styles.chipActive : null]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  tenantId == null ? styles.chipTextActive : null,
-                ]}
-              >
-                Unassigned
-              </Text>
-            </Pressable>
-            {tenantsQuery.data?.map((t) => (
-              <Pressable
-                key={t.id}
-                onPress={() => setTenantId(t.id)}
-                style={[
-                  styles.chip,
-                  tenantId === t.id ? styles.chipActive : null,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    tenantId === t.id ? styles.chipTextActive : null,
-                  ]}
-                >
-                  {t.full_name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {!!mismatch && <Text style={styles.errorText}>{mismatch}</Text>}
-
-          <View
-            style={[styles.row, { justifyContent: "flex-end", marginTop: 12 }]}
-          >
-            <Pressable
-              onPress={onClose}
-              style={[styles.btn, styles.btnGhost]}
-              disabled={mutation.isPending}
-            >
-              <Text style={[styles.btnText, styles.btnGhostText]}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              onPress={() =>
-                !mutation.isPending &&
-                canSubmit &&
-                !mismatch &&
-                mutation.mutate()
-              }
-              style={[
-                styles.btn,
-                styles.btnPrimary,
-                !canSubmit || !!mismatch || mutation.isPending
-                  ? styles.btnDisabled
-                  : null,
-              ]}
-              disabled={!canSubmit || !!mismatch || mutation.isPending}
-              accessibilityLabel="Submit new issue"
-            >
-              <Text style={styles.btnText}>
-                {mutation.isPending ? "Creating..." : "Create"}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+      <View style={{ marginTop: 4 }}>
+        <Field
+          label="Title"
+          placeholder="What needs attention?"
+          value={title}
+          onChangeText={setTitle}
+          onBlur={() => setTouched(true)}
+          editable={!mutation.isPending}
+          error={touched ? titleError : null}
+          autoFocus
+        />
+        <Field
+          label="Description"
+          placeholder="Optional details"
+          value={description}
+          onChangeText={setDescription}
+          editable={!mutation.isPending}
+          multiline
+          numberOfLines={3}
+        />
       </View>
-    </Modal>
+
+      <Text style={styles.label}>Severity</Text>
+      <Segmented
+        options={SEVERITIES}
+        value={severity}
+        onChange={setSeverity}
+        disabled={mutation.isPending}
+      />
+
+      <View style={styles.group}>
+        <SelectRow
+          label="Unit"
+          options={unitOptions}
+          value={unitId}
+          onChange={(v) => {
+            setUnitId(v);
+            const t = tenantsQuery.data?.find((x) => x.id === tenantId);
+            if (v && t?.unit_id && t.unit_id !== v) setTenantId(null);
+          }}
+        />
+        <SelectRow
+          label="Tenant"
+          options={tenantOptions}
+          value={tenantId}
+          onChange={setTenantId}
+          last
+        />
+      </View>
+      {!!mismatch && <Text style={styles.error}>{mismatch}</Text>}
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
+  label: { ...type.section, color: palette.muted, marginBottom: 8 },
+  group: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
   },
-  card: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 8,
-    width: "100%",
-  },
-  responsiveCard: {
-    maxWidth: 560,
-    alignSelf: "center",
-  },
-  title: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
-  label: { fontSize: 12, color: "#374151", marginTop: 8, marginBottom: 4 },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  textarea: { minHeight: 72, textAlignVertical: "top" },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  chip: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  chipActive: { backgroundColor: "#0a7ea4", borderColor: "#0a7ea4" },
-  chipText: { fontSize: 12, color: "#111827" },
-  chipTextActive: { color: "#fff", fontWeight: "700" },
-  btn: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  btnPrimary: { backgroundColor: "#0a7ea4" },
-  btnGhost: {
-    backgroundColor: "#f3f4f6",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-  },
-  btnText: { color: "#fff", fontWeight: "700" },
-  btnGhostText: { color: "#111827" },
-  btnDisabled: { opacity: 0.6 },
-  errorText: { color: "#ef4444", marginTop: 4 },
+  error: { ...type.caption, color: "#b42318", marginTop: 6 },
 });

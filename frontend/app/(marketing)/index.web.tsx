@@ -5,12 +5,13 @@ import FAQ from "@/components/marketing/FAQ";
 import Features from "@/components/marketing/Features";
 import Footer from "@/components/marketing/Footer";
 import Hero from "@/components/marketing/Hero";
-import Logos from "@/components/marketing/Logos";
 import NavBar from "@/components/marketing/NavBar";
 import Pricing from "@/components/marketing/Pricing";
 import Screenshot from "@/components/marketing/Screenshot";
+import { loadMarketingFonts, m } from "@/components/marketing/theme";
 
 export default function MarketingIndex() {
+  loadMarketingFonts();
   const scrollRef = useRef<ScrollView | null>(null);
   const [anchors, setAnchors] = useState<{ [key: string]: number }>({});
 
@@ -36,7 +37,6 @@ export default function MarketingIndex() {
         onGoToFAQ={() => scrollTo("faq")}
       />
       <Hero />
-      <Logos />
       <Features />
       <Screenshot />
       <View onLayout={(e) => setAnchor("pricing", e.nativeEvent.layout.y)}>
@@ -51,6 +51,6 @@ export default function MarketingIndex() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#ffffff" },
-  container: { paddingBottom: 48 },
+  page: { flex: 1, backgroundColor: m.paper },
+  container: {},
 });

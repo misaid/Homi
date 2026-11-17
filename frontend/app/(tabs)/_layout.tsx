@@ -1,18 +1,23 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@/lib/auth";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AppHeaderActions from "@/components/AppHeaderActions";
 import { HapticTab } from "@/components/HapticTab";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Colors } from "@/constants/Colors";
+import { palette } from "@/constants/theme";
+import { font, type } from "@/constants/type";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 8);
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) return null;
@@ -22,23 +27,34 @@ export default function TabLayout() {
       initialRouteName="home"
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarInactiveTintColor: palette.faint,
         headerShown: true,
         headerLeft: () => <AppHeaderActions side="left" />,
         headerRight: () => <AppHeaderActions side="right" />,
-        headerTitleAlign: "center",
+        headerTitleAlign: "left",
+        headerTitleStyle: { ...type.title, color: Colors[colorScheme ?? "light"].text },
+        headerStyle: {
+          backgroundColor: Colors[colorScheme ?? "light"].pageBackground,
+          shadowOpacity: 0,
+          elevation: 0,
+          borderBottomWidth: 0,
+        },
+        headerShadowVisible: false,
+        tabBarLabelStyle: { ...font("body", 600), fontSize: 11, lineHeight: 14, marginTop: 2 },
+        tabBarIconStyle: { marginTop: 2 },
         headerLeftContainerStyle: { paddingLeft: 8 },
         headerRightContainerStyle: { paddingRight: 8 },
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: "absolute",
-          },
-          default: {
-            backgroundColor: Colors[colorScheme ?? "light"].pageBackground,
-          },
-        }),
+        tabBarStyle: {
+          ...(Platform.OS === "ios" ? { position: "absolute" as const } : { backgroundColor: palette.card }),
+          height: 60 + bottomPad,
+          paddingTop: 6,
+          paddingBottom: bottomPad,
+          borderTopWidth: 1,
+          borderTopColor: palette.border,
+          elevation: 0,
+        },
         tabBarIcon: ({ color, focused, size }) => {
           const iconMap: Record<string, string> = {
             home: "home",
@@ -48,13 +64,12 @@ export default function TabLayout() {
           };
           const baseName = iconMap[route.name] ?? "ellipse";
           const name = focused ? baseName : `${baseName}-outline`;
-          const iconSize = typeof size === "number" ? size : 28;
+          const iconSize = 24;
           return (
             <Ionicons
               name={name as any}
               size={iconSize}
               color={color}
-              style={{ opacity: focused ? 1 : 0.8 }}
             />
           );
         },

@@ -1,4 +1,9 @@
+import { EmptyState, IconButton, groupedRow } from "@/components/ui";
+import { palette, status } from "@/constants/theme";
+import { font, type } from "@/constants/type";
 import { useApi } from "@/lib/api";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { qk } from "@/lib/queryKeys";
 import { Notification, Paginated } from "@/lib/types";
 import {
@@ -8,7 +13,7 @@ import {
 } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { useNavigation } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { useCallback } from "react";
 import {
   FlatList,
@@ -27,6 +32,8 @@ export default function NotificationsScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const nav = useNavigation();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const fetchPage = useCallback(
     async ({ pageParam = 1 }): Promise<Paginated<Notification>> => {
@@ -67,49 +74,71 @@ export default function NotificationsScreen() {
   const onRefresh = () => listQuery.refetch();
   const onEnd = () => listQuery.fetchNextPage();
 
+  const hasUnread = items.some((i) => !i.read_at);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
+        <IconButton
+          icon="arrow-back"
+          accessibilityLabel="Back"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/home"))}
+        />
         <Text style={styles.title}>Notifications</Text>
-        <Pressable onPress={() => markAll.mutate()} hitSlop={8}>
-          <Text style={styles.link}>Mark all read</Text>
-        </Pressable>
+        {hasUnread ? (
+          <Pressable onPress={() => markAll.mutate()} hitSlop={8} accessibilityRole="button">
+            <Text style={styles.link}>Mark all read</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <FlatList
         data={items}
         keyExtractor={(i) => i.id}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={async () => {
-              if (!item.read_at) await markRead.mutateAsync(item.id);
-              // Optional deep links
-              const data = item.data || {};
-              if (data.unit_id)
-                nav.navigate(
-                  "/units/[id]" as never,
-                  { id: data.unit_id } as never
-                );
-              if (data.tenant_id)
-                nav.navigate(
-                  "/tenants/[id]" as never,
-                  { id: data.tenant_id } as never
-                );
-            }}
-            style={[styles.item, !item.read_at && styles.unread]}
-          >
-            <View style={styles.row}>
-              {!item.read_at && <View style={styles.dot} />}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
+        contentContainerStyle={styles.list}
+        renderItem={({ item, index }) => {
+          const k = kindOf(item.kind);
+          const unread = !item.read_at;
+          return (
+            <Pressable
+              onPress={async () => {
+                if (!item.read_at) await markRead.mutateAsync(item.id);
+                // Optional deep links
+                const data = item.data || {};
+                if (data.unit_id)
+                  nav.navigate(
+                    "/units/[id]" as never,
+                    { id: data.unit_id } as never
+                  );
+                if (data.tenant_id)
+                  nav.navigate(
+                    "/tenants/[id]" as never,
+                    { id: data.tenant_id } as never
+                  );
+              }}
+              style={({ pressed }) => [
+                groupedRow(index, items.length),
+                styles.item,
+                unread && { backgroundColor: "#fbfaff" },
+                pressed && { backgroundColor: palette.page },
+              ]}
+            >
+              <View style={[styles.icon, { backgroundColor: status[k.tone].bg }]}>
+                <Ionicons name={k.icon} size={18} color={status[k.tone].fg} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.titleRow}>
+                  <Text style={[styles.itemTitle, unread && font("body", 700)]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.time}>{dayjs(item.created_at).fromNow(true)}</Text>
+                </View>
                 <Text style={styles.itemBody}>{item.body}</Text>
               </View>
-              <Text style={styles.time}>
-                {dayjs(item.created_at).fromNow()}
-              </Text>
-            </View>
-          </Pressable>
-        )}
+              {unread ? <View style={styles.dot} /> : null}
+            </Pressable>
+          );
+        }}
         refreshControl={
           <RefreshControl
             refreshing={listQuery.isRefetching}
@@ -118,49 +147,54 @@ export default function NotificationsScreen() {
         }
         onEndReached={onEnd}
         onEndReachedThreshold={0.5}
-        ListEmptyComponent={() => (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>You are all caught up</Text>
-          </View>
-        )}
+        ListEmptyComponent={() =>
+          listQuery.isPending ? null : (
+            <EmptyState
+              icon="notifications-off-outline"
+              title="You're all caught up"
+              body="Rent reminders, new issues and lease dates will show up here."
+            />
+          )
+        }
       />
     </View>
   );
 }
 
+function kindOf(kind?: string): {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  tone: "info" | "warn" | "danger" | "neutral";
+} {
+  switch (kind) {
+    case "rent":
+      return { icon: "card-outline", tone: "info" };
+    case "issue":
+      return { icon: "construct-outline", tone: "warn" };
+    case "lease":
+      return { icon: "calendar-outline", tone: "neutral" };
+    default:
+      return { icon: "notifications-outline", tone: "neutral" };
+  }
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12 },
+  container: { flex: 1, backgroundColor: palette.page },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 4,
+    paddingLeft: 8,
+    paddingRight: 16,
     marginBottom: 8,
   },
-  title: { fontSize: 20, fontWeight: "700" },
-  link: { color: "#2563eb", fontWeight: "600" },
-  item: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    marginBottom: 6,
-  },
-  unread: { backgroundColor: "#f1f5f9" },
-  row: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#ef4444",
-    marginTop: 6,
-  },
-  itemTitle: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
-  itemBody: { fontSize: 13, color: "#374151" },
-  time: { fontSize: 12, color: "#6b7280" },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 40,
-  },
-  emptyText: { color: "#6b7280" },
+  title: { ...type.title, color: palette.ink, flex: 1 },
+  link: { ...font("body", 600), fontSize: 14, color: palette.tint },
+  list: { paddingHorizontal: 16, paddingBottom: 32, alignSelf: "center", width: "100%", maxWidth: 720 },
+  item: { flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 14 },
+  icon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  titleRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  itemTitle: { ...type.label, color: palette.ink, flex: 1 },
+  itemBody: { ...type.caption, color: palette.inkSoft, marginTop: 2 },
+  time: { ...type.micro, color: palette.faint },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.tint, marginTop: 6 },
 });

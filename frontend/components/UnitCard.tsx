@@ -1,10 +1,11 @@
 // All data fetching must use lib/api useApi(). Do not call fetch directly.
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
-import { Ionicons } from "@expo/vector-icons";
+import { Badge, IconButton } from "@/components/ui";
+import { palette, radius, shadow } from "@/constants/theme";
+import { font, type } from "@/constants/type";
 import { Image } from "expo-image";
 import { memo, useMemo, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 export type UnitCardProps = {
   id: string;
@@ -20,158 +21,85 @@ export type UnitCardProps = {
 };
 
 function UnitCardComponent(props: UnitCardProps) {
-  const colorScheme = useColorScheme();
-  const cardBg = Colors[colorScheme ?? "light"].card;
-  const chipBg = colorScheme === "dark" ? "#0b1a2b" : "#f4f7fa";
-  const addBg = colorScheme === "dark" ? "#0b2230" : "#e6f3f7";
-  const {
-    name,
-    address,
-    monthly_rent,
-    beds,
-    baths,
-    photos,
-    occupants_count,
-    onPress,
-    onAddOccupant,
-  } = props;
-  const coverUri = useMemo(
-    () => (photos && photos.length > 0 ? photos[0] : null),
-    [photos]
-  );
+  const { name, address, monthly_rent, beds, baths, photos, occupants_count, onPress, onAddOccupant } = props;
+  const coverUri = useMemo(() => (photos && photos.length > 0 ? photos[0] : null), [photos]);
   const pressAnim = useRef(new Animated.Value(1)).current;
+  const spring = (toValue: number) =>
+    Animated.spring(pressAnim, { toValue, useNativeDriver: true, friction: 8, tension: 140 }).start();
 
-  const accessibilityLabel = `${name}. Beds ${beds ?? "-"}, Baths ${
-    baths ?? "-"
-  }, Occupants ${occupants_count}. ${address}`;
+  const rentNum = typeof monthly_rent === "string" ? Number(monthly_rent) : monthly_rent;
+  const rent =
+    typeof rentNum === "number" && Number.isFinite(rentNum) ? `$${rentNum.toLocaleString("en-US")}` : null;
+  const meta = [
+    beds != null ? `${beds} bd` : null,
+    baths != null ? `${baths} ba` : null,
+    `${occupants_count} ${occupants_count === 1 ? "tenant" : "tenants"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const vacant = occupants_count === 0;
+
+  const accessibilityLabel = `${name}. Beds ${beds ?? "-"}, Baths ${baths ?? "-"}, Occupants ${occupants_count}. ${address}`;
 
   return (
     <Pressable
-      onPressIn={() => {
-        Animated.spring(pressAnim, {
-          toValue: 0.98,
-          useNativeDriver: true,
-          friction: 8,
-          tension: 140,
-        }).start();
-      }}
-      onPressOut={() => {
-        Animated.spring(pressAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          friction: 8,
-          tension: 140,
-        }).start();
-      }}
+      onPressIn={() => spring(0.98)}
+      onPressOut={() => spring(1)}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
-      style={{ borderRadius: RADIUS }}
+      style={styles.wrap}
     >
-      <Animated.View
-        style={[
-          styles.card,
-          { transform: [{ scale: pressAnim }], backgroundColor: cardBg },
-        ]}
-      >
-        <View style={styles.headerWrapper}>
+      <Animated.View style={[styles.card, { transform: [{ scale: pressAnim }] }]}>
+        <View style={styles.media}>
           {coverUri ? (
-            <Image
-              source={{ uri: coverUri }}
-              style={styles.headerImage}
-              contentFit="cover"
-              transition={220}
-            />
+            <Image source={{ uri: coverUri }} style={styles.image} contentFit="cover" transition={220} />
           ) : (
             <View style={styles.placeholder} />
           )}
-          <View style={styles.headerOverlay}>
-            <Text numberOfLines={1} style={styles.titleOverlay}>
+          <View style={styles.fade} pointerEvents="none">
+            <Svg width="100%" height="100%" preserveAspectRatio="none">
+              <Defs>
+                <LinearGradient id="homiUnitFade" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#1b1840" stopOpacity={0} />
+                  <Stop offset="1" stopColor="#1b1840" stopOpacity={0.78} />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#homiUnitFade)" />
+            </Svg>
+          </View>
+          {rent ? (
+            <View style={styles.rentPill} accessibilityLabel={`Monthly rent ${rent}`}>
+              <Text style={styles.rentText}>
+                {rent}
+                <Text style={styles.rentPer}>/mo</Text>
+              </Text>
+            </View>
+          ) : null}
+          <View style={styles.caption} pointerEvents="none">
+            <Text numberOfLines={1} style={styles.name}>
               {name}
             </Text>
+            {!!address && (
+              <Text numberOfLines={1} style={styles.address}>
+                {address}
+              </Text>
+            )}
           </View>
         </View>
         <View style={styles.body}>
-          <View style={styles.metaRow}>
-            <View
-              style={[
-                styles.metaItem,
-                styles.metaChip,
-                { backgroundColor: chipBg },
-              ]}
-              accessibilityLabel={`Beds ${beds ?? 0}`}
-            >
-              <Ionicons name="bed-outline" size={16} color="#444" />
-              <Text style={styles.metaText}>{beds ?? "-"}</Text>
-            </View>
-            <View
-              style={[
-                styles.metaItem,
-                styles.metaChip,
-                { backgroundColor: chipBg },
-              ]}
-              accessibilityLabel={`Baths ${baths ?? 0}`}
-            >
-              <Ionicons name="water-outline" size={16} color="#444" />
-              <Text style={styles.metaText}>{baths ?? "-"}</Text>
-            </View>
-            <View
-              style={[
-                styles.metaItem,
-                styles.metaChip,
-                { backgroundColor: chipBg },
-              ]}
-              accessibilityLabel={`Occupants ${occupants_count}`}
-            >
-              <Ionicons name="person-outline" size={16} color="#444" />
-              <Text style={styles.metaText}>{occupants_count}</Text>
-            </View>
-            <View
-              style={[
-                styles.metaItem,
-                styles.metaChip,
-                { backgroundColor: chipBg },
-              ]}
-              accessibilityLabel={`Monthly rent ${monthly_rent ?? 0}`}
-            >
-              <Ionicons name="cash-outline" size={16} color="#444" />
-              <Text style={styles.metaText}>
-                {(() => {
-                  const n =
-                    typeof monthly_rent === "string"
-                      ? Number(monthly_rent)
-                      : monthly_rent;
-                  return typeof n === "number" && Number.isFinite(n)
-                    ? `$${Number(n).toLocaleString()}`
-                    : "-";
-                })()}
-              </Text>
-            </View>
-            {onAddOccupant && (
-              <Pressable
-                onPress={onAddOccupant}
-                style={[styles.addBtn, { backgroundColor: addBg }]}
-                accessibilityLabel="Add occupant"
-              >
-                <Ionicons name="person-add-outline" size={16} color="#0a7ea4" />
-                <Text style={styles.addBtnText}>Add</Text>
-              </Pressable>
-            )}
-          </View>
-          {!!address && (
-            <View
-              style={styles.addressRow}
-              accessibilityLabel={`Address ${address}`}
-            >
-              <Ionicons name="location-outline" size={16} color="#666" />
-              <Text
-                numberOfLines={2}
-                ellipsizeMode="tail"
-                style={styles.address}
-              >
-                {address}
-              </Text>
-            </View>
-          )}
+          <Text style={styles.meta} numberOfLines={1}>
+            {meta}
+          </Text>
+          <Badge label={vacant ? "Vacant" : "Occupied"} tone={vacant ? "warn" : "ok"} style={{ alignSelf: "center" }} />
+          {onAddOccupant ? (
+            <IconButton
+              icon="person-add-outline"
+              tone="wash"
+              size={32}
+              accessibilityLabel="Add occupant"
+              onPress={onAddOccupant}
+            />
+          ) : null}
         </View>
       </Animated.View>
     </Pressable>
@@ -180,88 +108,35 @@ function UnitCardComponent(props: UnitCardProps) {
 
 export const UnitCard = memo(UnitCardComponent);
 
-const RADIUS = 12;
-
 const styles = StyleSheet.create({
+  wrap: { marginHorizontal: 16, marginVertical: 8, borderRadius: radius.lg },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: RADIUS,
-    marginHorizontal: 8,
-    marginVertical: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    backgroundColor: palette.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
     overflow: "hidden",
   },
-  headerWrapper: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-    backgroundColor: "#f0f0f0",
-    position: "relative",
-  },
-  headerImage: {
-    width: "100%",
-    height: "100%",
-    borderTopLeftRadius: RADIUS,
-    borderTopRightRadius: RADIUS,
-  },
-  headerOverlay: {
+  media: { width: "100%", aspectRatio: 16 / 10, backgroundColor: palette.wash },
+  image: { width: "100%", height: "100%" },
+  placeholder: { width: "100%", height: "100%", backgroundColor: palette.wash },
+  fade: { position: "absolute", left: 0, right: 0, bottom: 0, height: "55%" },
+  rentPill: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "rgba(0,0,0,0.25)",
+    top: 12,
+    right: 12,
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    backgroundColor: palette.card,
+    justifyContent: "center",
+    ...shadow.card,
   },
-  placeholder: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#e6eef6",
-  },
-  body: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  titleOverlay: { fontSize: 17, fontWeight: "700", color: "#fff" },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 6,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  metaChip: {
-    backgroundColor: "#f4f7fa",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  metaText: { color: "#444", fontWeight: "500", fontSize: 14 },
-  addBtn: {
-    marginLeft: "auto",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: "#e6f3f7",
-  },
-  addBtnText: { color: "#0a7ea4", fontWeight: "700" },
-  address: {
-    color: "#444",
-    fontSize: 14,
-  },
-  addressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
+  rentText: { ...font("body", 700), fontSize: 13, color: palette.ink, ...type.tabular },
+  rentPer: { ...font("body", 500), color: palette.muted },
+  caption: { position: "absolute", left: 14, right: 14, bottom: 12 },
+  name: { ...type.title, color: palette.white },
+  address: { ...type.caption, color: "rgba(255,255,255,0.88)", marginTop: 1 },
+  body: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, height: 52 },
+  meta: { ...type.caption, color: palette.inkSoft, flex: 1 },
 });

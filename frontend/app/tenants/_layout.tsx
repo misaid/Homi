@@ -4,6 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import { Pressable } from "react-native";
 
 import { Colors } from "@/constants/Colors";
+import { type } from "@/constants/type";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 function HeaderCloseButton() {
@@ -46,6 +47,10 @@ export default function TenantsLayout() {
         headerShown: true,
         headerBackTitleVisible: false,
         headerTintColor: tint,
+        headerTitleAlign: "center",
+        headerTitleStyle: { ...type.heading, color: Colors[colorScheme ?? "light"].text },
+        headerStyle: { backgroundColor: Colors[colorScheme ?? "light"].pageBackground },
+        headerShadowVisible: false,
       }}
     >
       <Stack.Screen name="index" options={{ title: "Tenants" }} />

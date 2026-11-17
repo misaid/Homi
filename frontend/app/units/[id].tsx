@@ -1,3 +1,18 @@
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  SectionHeader,
+  Sheet,
+  SheetAction,
+  SheetHeader,
+} from "@/components/ui";
+import { palette, radius } from "@/constants/theme";
+import { font, type } from "@/constants/type";
 import { useApi } from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import type { Paginated, Tenant, Unit } from "@/lib/types";
@@ -5,20 +20,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { z } from "zod";
@@ -62,7 +74,9 @@ export default function UnitDetailScreen() {
   const api = useApi();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const navigation = useNavigation();
   const [isEditing, setIsEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const unitQuery = useQuery<Unit, Error>({
     queryKey: qk.unit(unitId),
@@ -235,11 +249,37 @@ export default function UnitDetailScreen() {
     },
   });
 
+  // Edit and the overflow menu live in the stack header, not beside the title.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () =>
+        unitQuery.data ? (
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => setIsEditing((v) => !v)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={isEditing ? "Cancel editing" : "Edit unit"}
+            >
+              <Text style={styles.headerLink}>{isEditing ? "Cancel" : "Edit"}</Text>
+            </Pressable>
+            {!isEditing ? (
+              <IconButton
+                icon="ellipsis-horizontal"
+                accessibilityLabel="More actions"
+                size={36}
+                onPress={() => setMenuOpen(true)}
+              />
+            ) : null}
+          </View>
+        ) : null,
+    });
+  }, [navigation, isEditing, unitQuery.data]);
+
   if (unitQuery.isPending) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={styles.muted}>Loading unit...</Text>
+        <ActivityIndicator color={palette.tint} />
       </View>
     );
   }
@@ -247,507 +287,363 @@ export default function UnitDetailScreen() {
   if (unitQuery.isError) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>{unitQuery.error.message}</Text>
-        <Pressable onPress={() => unitQuery.refetch()} style={styles.retryBtn}>
-          <Text style={styles.retryText}>Retry</Text>
-        </Pressable>
+        <EmptyState
+          icon="cloud-offline-outline"
+          tone="danger"
+          title="Couldn't load this unit"
+          body={unitQuery.error.message}
+          action={<Button label="Try again" variant="secondary" onPress={() => unitQuery.refetch()} />}
+        />
       </View>
     );
   }
 
   const unit = unitQuery.data as Unit;
+  const cover = (unit.display_url || unit.cover_image_uri) as string | undefined;
+  const editCover = pendingImageUri || unit.display_url || unit.cover_image_uri || null;
+  const vacant = !tenantsQuery.isPending && tenants.length === 0;
 
   return (
     <ScrollView
+      style={{ backgroundColor: palette.page }}
       contentContainerStyle={[styles.container, styles.responsivePad]}
+      keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{unit.name}</Text>
-        <View style={styles.headerActions}>
-          <Pressable
-            style={[styles.button, styles.btnSecondary]}
-            onPress={() => setIsEditing((v) => !v)}
-          >
-            <Text style={[styles.btnText, styles.btnSecondaryText]}>
-              {isEditing ? "Cancel" : "Edit"}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.button, styles.btnDanger]}
-            onPress={onDelete}
-          >
-            <Text style={[styles.btnText, styles.btnDangerText]}>
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-
       {isEditing ? (
-        <View style={styles.card}>
-          <View style={{ gap: 8, marginBottom: 12 }}>
-            <Text style={styles.label}>Cover image</Text>
-            {pendingImageUri ? (
-              <Image
-                source={{ uri: pendingImageUri }}
-                style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 8 }}
-              />
-            ) : unit.display_url ? (
-              <Image
-                source={{ uri: unit.display_url }}
-                style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 8 }}
-              />
-            ) : unit.cover_image_uri ? (
-              <Image
-                source={{ uri: unit.cover_image_uri }}
-                style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 8 }}
-              />
-            ) : (
-              <View
-                style={{
-                  width: "100%",
-                  aspectRatio: 16 / 9,
-                  borderRadius: 8,
-                  backgroundColor: "#f3f4f6",
+        <Card>
+          <Text style={styles.fieldLabel}>Cover image</Text>
+          {editCover ? (
+            <Image source={{ uri: editCover }} style={styles.editCover} contentFit="cover" />
+          ) : (
+            <View style={[styles.editCover, { backgroundColor: palette.field }]} />
+          )}
+          <View style={styles.coverActions}>
+            <Button label="Change image" icon="image-outline" variant="secondary" size="sm" onPress={pickImage} />
+            {!!unit.image_url && !pendingImageUri && (
+              <Button
+                label="Remove"
+                variant="ghost"
+                size="sm"
+                onPress={async () => {
+                  await api.del(`/api/v1/units/${unitId}/image`);
+                  await queryClient.invalidateQueries({
+                    queryKey: qk.unit(unitId),
+                  });
                 }}
               />
             )}
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Pressable
-                onPress={pickImage}
-                style={[styles.button, styles.btnSecondary]}
-              >
-                <Text style={[styles.btnText, styles.btnSecondaryText]}>
-                  Change image
-                </Text>
-              </Pressable>
-              {!!unit.image_url && !pendingImageUri && (
-                <Pressable
-                  onPress={async () => {
-                    await api.del(`/api/v1/units/${unitId}/image`);
-                    await queryClient.invalidateQueries({
-                      queryKey: qk.unit(unitId),
-                    });
-                  }}
-                  style={[styles.button, styles.btnSecondary]}
-                >
-                  <Text style={[styles.btnText, styles.btnSecondaryText]}>
-                    Remove image
-                  </Text>
-                </Pressable>
-              )}
-              {pendingImageUri && (
-                <Pressable
-                  onPress={() => setPendingImageUri(null)}
-                  style={[styles.button, styles.btnSecondary]}
-                >
-                  <Text style={[styles.btnText, styles.btnSecondaryText]}>
-                    Remove selection
-                  </Text>
-                </Pressable>
-              )}
+            {pendingImageUri && (
+              <Button label="Undo selection" variant="ghost" size="sm" onPress={() => setPendingImageUri(null)} />
+            )}
+          </View>
+
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Name"
+                placeholder="Enter name"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value as string}
+                error={errors.name?.message}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="address"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Address"
+                placeholder="Enter address"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value as string}
+                error={errors.address?.message}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="monthly_rent"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Monthly rent"
+                prefix="$"
+                placeholder="1500"
+                onBlur={onBlur}
+                onChangeText={onChange as any}
+                value={String(value ?? "")}
+                keyboardType="numeric"
+                error={errors.monthly_rent?.message as string | undefined}
+              />
+            )}
+          />
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Controller
+                control={control}
+                name="beds"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Field
+                    label="Beds"
+                    placeholder="3"
+                    onBlur={onBlur}
+                    onChangeText={onChange as any}
+                    value={String(value ?? "")}
+                    keyboardType="number-pad"
+                    error={errors.beds?.message as string | undefined}
+                  />
+                )}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Controller
+                control={control}
+                name="baths"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Field
+                    label="Baths"
+                    placeholder="2.5"
+                    onBlur={onBlur}
+                    onChangeText={onChange as any}
+                    value={String(value ?? "")}
+                    keyboardType="decimal-pad"
+                    error={errors.baths?.message as string | undefined}
+                  />
+                )}
+              />
             </View>
           </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Name</Text>
-            <Controller
-              control={control}
-              name="name"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.name && styles.inputError]}
-                  placeholder="Enter name"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value as string}
-                />
-              )}
-            />
-            {errors.name && (
-              <Text style={styles.errorText}>{errors.name.message}</Text>
+          <Controller
+            control={control}
+            name="notes"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Field
+                label="Notes"
+                placeholder="Any notes..."
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={(value as string) ?? ""}
+                multiline
+                numberOfLines={4}
+              />
             )}
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Address</Text>
-            <Controller
-              control={control}
-              name="address"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.address && styles.inputError]}
-                  placeholder="Enter address"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value as string}
-                />
-              )}
-            />
-            {errors.address && (
-              <Text style={styles.errorText}>{errors.address.message}</Text>
-            )}
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Monthly Rent</Text>
-            <Controller
-              control={control}
-              name="monthly_rent"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[
-                    styles.input,
-                    errors.monthly_rent && styles.inputError,
-                  ]}
-                  placeholder="e.g. 1500"
-                  onBlur={onBlur}
-                  onChangeText={onChange as any}
-                  value={String(value ?? "")}
-                  keyboardType="numeric"
-                />
-              )}
-            />
-            {errors.monthly_rent && (
-              <Text style={styles.errorText}>
-                {errors.monthly_rent.message as string}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Beds (optional)</Text>
-            <Controller
-              control={control}
-              name="beds"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.beds && styles.inputError]}
-                  placeholder="e.g. 3"
-                  onBlur={onBlur}
-                  onChangeText={onChange as any}
-                  value={String(value ?? "")}
-                  keyboardType="number-pad"
-                />
-              )}
-            />
-            {errors.beds && (
-              <Text style={styles.errorText}>
-                {errors.beds.message as string}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Baths (optional)</Text>
-            <Controller
-              control={control}
-              name="baths"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.baths && styles.inputError]}
-                  placeholder="e.g. 2.5"
-                  onBlur={onBlur}
-                  onChangeText={onChange as any}
-                  value={String(value ?? "")}
-                  keyboardType="decimal-pad"
-                />
-              )}
-            />
-            {errors.baths && (
-              <Text style={styles.errorText}>
-                {errors.baths.message as string}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Notes</Text>
-            <Controller
-              control={control}
-              name="notes"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, styles.textarea]}
-                  placeholder="Any notes..."
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={(value as string) ?? ""}
-                  multiline
-                  numberOfLines={4}
-                />
-              )}
-            />
-          </View>
+          />
 
           {!!updateMutation.error && (
-            <Text
-              style={[
-                styles.errorText,
-                { textAlign: "center", marginBottom: 8 },
-              ]}
-            >
-              {updateMutation.error.message}
-            </Text>
+            <Text style={[styles.errorText, { marginBottom: 8 }]}>{updateMutation.error.message}</Text>
           )}
 
-          <View style={styles.actions}>
-            <Pressable
-              onPress={handleSubmit((v) => updateMutation.mutate(v))}
-              style={[styles.button, styles.btnPrimary]}
-              disabled={updateMutation.isPending}
-            >
-              <Text style={[styles.btnText, styles.btnPrimaryText]}>
-                {updateMutation.isPending ? "Saving..." : "Save"}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+          <Button
+            label={updateMutation.isPending ? "Saving..." : "Save changes"}
+            full
+            disabled={updateMutation.isPending}
+            onPress={handleSubmit((v) => updateMutation.mutate(v as any))}
+          />
+        </Card>
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.itemTitle}>{unit.name}</Text>
-          {!!unit.address && <Text style={styles.sub}>{unit.address}</Text>}
-          <Text style={styles.rent}>
-            ${Number(unit.monthly_rent ?? 0).toLocaleString()} monthly
-          </Text>
-          <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
-            <Text style={styles.muted}>Beds: {unit.beds ?? "-"}</Text>
-            <Text style={styles.muted}>Baths: {unit.baths ?? "-"}</Text>
+        <>
+          {cover ? (
+            <Image
+              source={{ uri: cover }}
+              accessibilityLabel={`Photo of ${unit.name}`}
+              style={styles.hero}
+              contentFit="cover"
+            />
+          ) : null}
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={2}>
+              {unit.name}
+            </Text>
+            {!tenantsQuery.isPending ? (
+              <Badge label={vacant ? "Vacant" : "Occupied"} tone={vacant ? "warn" : "ok"} style={{ alignSelf: "center" }} />
+            ) : null}
+          </View>
+          {!!unit.address && <Text style={styles.address}>{unit.address}</Text>}
+
+          <View style={styles.statsRow}>
+            <Card style={styles.stat}>
+              <Text style={styles.statLabel}>Rent</Text>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                ${Number(unit.monthly_rent ?? 0).toLocaleString("en-US")}
+              </Text>
+            </Card>
+            <Card style={styles.stat}>
+              <Text style={styles.statLabel}>Beds</Text>
+              <Text style={styles.statValue}>{unit.beds ?? "–"}</Text>
+            </Card>
+            <Card style={styles.stat}>
+              <Text style={styles.statLabel}>Baths</Text>
+              <Text style={styles.statValue}>{unit.baths ?? "–"}</Text>
+            </Card>
           </View>
           {!!unit.notes && <Text style={styles.notes}>{unit.notes}</Text>}
-        </View>
+        </>
       )}
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Tenants</Text>
-        <Pressable
-          style={[styles.button, styles.btnSecondary]}
-          onPress={() => router.push(`/tenants/new?unit_id=${unitId}`)}
-        >
-          <Text style={[styles.btnText, styles.btnSecondaryText]}>
-            Assign tenant
-          </Text>
-        </Pressable>
-      </View>
+      <SectionHeader
+        title="Tenants"
+        right={
+          <Button
+            label="Assign"
+            icon="add"
+            variant="secondary"
+            size="sm"
+            accessibilityLabel="Assign tenant"
+            onPress={() => router.push(`/tenants/new?unit_id=${unitId}`)}
+          />
+        }
+      />
 
       {tenantsQuery.isPending ? (
         <View style={styles.center}>
-          <ActivityIndicator />
+          <ActivityIndicator color={palette.tint} />
         </View>
       ) : tenantsQuery.isError ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{tenantsQuery.error.message}</Text>
-        </View>
+        <Text style={styles.errorText}>{tenantsQuery.error.message}</Text>
       ) : tenants.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>No tenants</Text>
-        </View>
+        <Card padded={false}>
+          <EmptyState
+            icon="person-add-outline"
+            title="No tenants yet"
+            body="Assign a tenant to start a rent schedule for this unit."
+          />
+        </Card>
       ) : (
-        <View style={styles.list}>
-          {tenants.map((t) => (
-            <View key={t.id} style={styles.listItem}>
-              <View style={styles.rowBetween}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.tenantName}>{t.full_name}</Text>
-                  {!!t.email && <Text style={styles.tenantSub}>{t.email}</Text>}
-                  {!!t.phone && <Text style={styles.tenantSub}>{t.phone}</Text>}
-                </View>
-                <Pressable
-                  style={[styles.button, styles.btnPrimary]}
-                  onPress={() => setPaymentsTenant(t)}
-                >
-                  <Text style={[styles.btnText, styles.btnPrimaryText]}>
-                    View payments
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <Modal
-        visible={!!paymentsTenant}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPaymentsTenant(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.modalTitle}>
-                {paymentsTenant?.full_name}&apos;s payments
-              </Text>
+        <Card padded={false}>
+          {tenants.map((t, i) => (
+            <View key={t.id} style={[styles.tenantRow, i > 0 && styles.divider]}>
+              <Avatar name={t.full_name} size={40} />
               <Pressable
-                onPress={() => setPaymentsTenant(null)}
-                style={[styles.button, styles.btnSecondary]}
+                style={{ flex: 1, minWidth: 0 }}
+                onPress={() => router.push({ pathname: "/tenants/[id]", params: { id: String(t.id) } })}
+                accessibilityLabel={`Open ${t.full_name}`}
               >
-                <Text style={[styles.btnText, styles.btnSecondaryText]}>
-                  Close
+                <Text style={styles.tenantName} numberOfLines={1}>
+                  {t.full_name}
+                </Text>
+                <Text style={styles.tenantSub} numberOfLines={1}>
+                  {t.phone || t.email || "No contact details"}
                 </Text>
               </Pressable>
-            </View>
-
-            {paymentsQuery.isPending ? (
-              <View style={[styles.center, { paddingVertical: 20 }]}>
-                <ActivityIndicator />
-              </View>
-            ) : paymentsQuery.isError ? (
-              <Text style={styles.errorText}>
-                {paymentsQuery.error.message}
-              </Text>
-            ) : (
-              <FlatList
-                data={paymentsQuery.data?.items ?? []}
-                keyExtractor={(p) => p.id}
-                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                renderItem={({ item: p }) => (
-                  <View style={styles.paymentItem}>
-                    <View>
-                      <Text style={styles.paymentDate}>
-                        {p.due_date?.slice(0, 10)}
-                      </Text>
-                      <Text style={styles.paymentAmount}>
-                        ${p.amount?.toFixed(2)}
-                      </Text>
-                    </View>
-                    {(!p.status || p.status === "due") && (
-                      <Pressable
-                        onPress={() => markPaid.mutate(p.id)}
-                        disabled={markPaid.isPending}
-                        style={[styles.button, styles.btnPrimary]}
-                      >
-                        <Text style={[styles.btnText, styles.btnPrimaryText]}>
-                          {markPaid.isPending ? "Working" : "Mark paid"}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
-                )}
-                ListEmptyComponent={() => (
-                  <View style={[styles.center, { paddingVertical: 10 }]}>
-                    <Text style={styles.muted}>No due payments</Text>
-                  </View>
-                )}
+              <Button
+                label="Payments"
+                variant="secondary"
+                size="sm"
+                accessibilityLabel={`View ${t.full_name}'s payments`}
+                onPress={() => setPaymentsTenant(t)}
               />
-            )}
+            </View>
+          ))}
+        </Card>
+      )}
+
+      <Sheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        header={<SheetHeader label={unit.name} onClose={() => setMenuOpen(false)} />}
+      >
+        <SheetAction
+          icon="create-outline"
+          label="Edit unit"
+          onPress={() => {
+            setMenuOpen(false);
+            setIsEditing(true);
+          }}
+        />
+        <SheetAction
+          icon="trash-outline"
+          label={deleteMutation.isPending ? "Deleting..." : "Delete unit"}
+          danger
+          onPress={() => {
+            setMenuOpen(false);
+            onDelete();
+          }}
+        />
+      </Sheet>
+
+      <Sheet
+        visible={!!paymentsTenant}
+        onClose={() => setPaymentsTenant(null)}
+        header={
+          <SheetHeader
+            label={`${paymentsTenant?.full_name ?? ""} · payments due`}
+            onClose={() => setPaymentsTenant(null)}
+          />
+        }
+      >
+        {paymentsQuery.isPending ? (
+          <View style={[styles.center, { paddingVertical: 24 }]}>
+            <ActivityIndicator color={palette.tint} />
           </View>
-        </View>
-      </Modal>
+        ) : paymentsQuery.isError ? (
+          <Text style={styles.errorText}>{paymentsQuery.error.message}</Text>
+        ) : (paymentsQuery.data?.items ?? []).length === 0 ? (
+          <EmptyState icon="checkmark-done-outline" title="Nothing due" body="This tenant is all paid up." />
+        ) : (
+          (paymentsQuery.data?.items ?? []).map((p, i) => {
+            const busy = markPaid.isPending && markPaid.variables === p.id;
+            return (
+              <View key={p.id} style={[styles.paymentItem, i > 0 && styles.divider]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.paymentAmount}>
+                    ${Number(p.amount ?? 0).toLocaleString("en-US")}
+                  </Text>
+                  <Text style={styles.paymentDate}>Due {formatDue(p.due_date)}</Text>
+                </View>
+                {(!p.status || p.status === "due") && (
+                  <Button
+                    label={busy ? "Saving" : "Mark paid"}
+                    icon={busy ? undefined : "checkmark"}
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy}
+                    onPress={() => markPaid.mutate(p.id)}
+                  />
+                )}
+              </View>
+            );
+          })
+        )}
+      </Sheet>
     </ScrollView>
   );
 }
 
+function formatDue(iso?: string): string {
+  if (!iso) return "-";
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: { padding: 16, paddingBottom: 40 },
   responsivePad: { alignSelf: "center", width: "100%", maxWidth: 900 },
-  center: { alignItems: "center", justifyContent: "center", padding: 16 },
-  muted: { color: "#666", marginTop: 8 },
-  errorText: { color: "#b00020", textAlign: "center" },
-  retryBtn: {
-    backgroundColor: "#1b73e8",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-    marginTop: 10,
-  },
-  retryText: { color: "#fff", fontWeight: "600" },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  title: { fontSize: 20, fontWeight: "700" },
-  headerActions: { flexDirection: "row", gap: 10 },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e0e0e0",
-    marginBottom: 16,
-  },
-  itemTitle: { fontSize: 18, fontWeight: "700", marginBottom: 4 },
-  sub: { color: "#444", marginBottom: 6 },
-  rent: { color: "#111", fontWeight: "600" },
-  notes: { marginTop: 8, color: "#222" },
-  field: { marginBottom: 12 },
-  label: { marginBottom: 6, color: "#222", fontWeight: "600" },
-  input: {
-    backgroundColor: "#fff",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  textarea: { height: 100, textAlignVertical: "top" },
-  inputError: { borderColor: "#b00020" },
-  actions: { flexDirection: "row", gap: 10 },
-  list: { gap: 10 },
-  listItem: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e0e0e0",
-  },
-  rowBetween: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  tenantName: { fontWeight: "700" },
-  tenantSub: { color: "#444" },
-  button: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnPrimary: { backgroundColor: "#0a7ea4" },
-  btnPrimaryText: { color: "#fff", fontWeight: "700" },
-  btnSecondary: {
-    backgroundColor: "#f0f0f0",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ccc",
-  },
-  btnSecondaryText: { color: "#222", fontWeight: "700" },
-  btnDanger: { backgroundColor: "#b00020" },
-  btnDangerText: { color: "#fff", fontWeight: "700" },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: "700" },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    maxHeight: "70%",
-  },
-  modalTitle: { fontSize: 16, fontWeight: "700" },
-  paymentItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#eee",
-  },
-  paymentDate: { fontSize: 12, color: "#666" },
-  paymentAmount: { fontSize: 16, fontWeight: "700" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 16, backgroundColor: palette.page },
+  errorText: { ...type.caption, color: "#b42318", textAlign: "center" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 6, paddingRight: 4 },
+  headerLink: { ...font("body", 600), fontSize: 16, color: palette.tint, paddingHorizontal: 6 },
+  hero: { width: "100%", aspectRatio: 16 / 10, borderRadius: radius.lg, backgroundColor: palette.wash },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 16 },
+  title: { ...type.display, color: palette.ink, flexShrink: 1 },
+  address: { ...type.body, color: palette.muted, marginTop: 4 },
+  statsRow: { flexDirection: "row", gap: 10, marginTop: 16 },
+  stat: { flex: 1, padding: 12 },
+  statLabel: { ...type.section, color: palette.muted },
+  statValue: { ...type.numeral, fontSize: 22, lineHeight: 28, letterSpacing: -0.4, color: palette.ink, marginTop: 4 },
+  notes: { ...type.body, color: palette.inkSoft, marginTop: 16 },
+  fieldLabel: { ...font("body", 600), fontSize: 13, color: palette.muted, marginBottom: 6 },
+  editCover: { width: "100%", aspectRatio: 16 / 9, borderRadius: radius.md },
+  coverActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10, marginBottom: 16 },
+  tenantRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  divider: { borderTopWidth: 1, borderTopColor: palette.border },
+  tenantName: { ...type.bodyStrong, color: palette.ink },
+  tenantSub: { ...type.caption, color: palette.muted, marginTop: 1 },
+  paymentItem: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
+  paymentDate: { ...type.caption, color: palette.muted, marginTop: 1 },
+  paymentAmount: { ...type.money, color: palette.ink },
 });

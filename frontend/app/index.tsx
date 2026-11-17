@@ -1,5 +1,7 @@
 // Redirect root "/" to the appropriate screen based on auth state
-import { useAuth } from "@clerk/clerk-expo";
+import "react-native-gesture-handler";
+import "react-native-reanimated";
+import { useAuth } from "@/lib/auth";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";

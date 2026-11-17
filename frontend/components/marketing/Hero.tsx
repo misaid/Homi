@@ -1,122 +1,103 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import Phone from "./Phone";
+import { focusRing, m } from "./theme";
 
 export default function Hero() {
   const router = useRouter();
-  const [focusA, setFocusA] = useState(false);
-  const [focusB, setFocusB] = useState(false);
-  const [hoverA, setHoverA] = useState(false);
-  const [hoverB, setHoverB] = useState(false);
-
+  const { width } = useWindowDimensions();
+  const wide = width >= 960;
+  const phoneW = wide ? 230 : Math.min(180, (width - 60) / 1.7);
+  const phoneH = (phoneW * 0.94 * 2400) / 1080 + phoneW * 0.06;
+  const stageH = phoneH + 60;
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.content}>
-        <View style={styles.textCol}>
-          <Text style={styles.eyebrow}>Tenant management</Text>
-          <Text accessibilityRole="header" style={styles.title}>
-            Track units, tenants, rent, and issues in one place
+    <View style={s.wrapper}>
+      <View style={[s.content, wide && { flexDirection: "row", alignItems: "center" }]}>
+        <View style={[s.textCol, wide && { flex: 1, paddingRight: 24, minWidth: 0 }]}>
+          <Text accessibilityRole="header" style={[s.title, { fontSize: wide ? 58 : 42, lineHeight: wide ? 60 : 44 }]}>
+            Every unit, tenant and rent payment in one calm place.
           </Text>
-          <Text style={styles.subtitle}>
-            Homi helps small property managers stay organized with a simple,
-            fast workflow that works on mobile and web.
+          <Text style={s.subtitle}>
+            Homi is a lightweight property manager for independent landlords and
+            small teams. Track who lives where, who has paid, and what needs
+            fixing, from your phone or the web.
           </Text>
-          <View style={styles.ctaRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Get started"
-              onPress={() => router.push("/(auth)/sign-up")}
-              onMouseEnter={() => setHoverA(true)}
-              onMouseLeave={() => setHoverA(false)}
-              onFocus={() => setFocusA(true)}
-              onBlur={() => setFocusA(false)}
-              style={[
-                styles.btn,
-                styles.btnPrimary,
-                hoverA && { opacity: 0.9 },
-                focusA && styles.focused,
-              ]}
-            >
-              <Text style={styles.btnPrimaryText}>Get started</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Log in"
-              onPress={() => router.push("/(auth)/sign-in")}
-              onMouseEnter={() => setHoverB(true)}
-              onMouseLeave={() => setHoverB(false)}
-              onFocus={() => setFocusB(true)}
-              onBlur={() => setFocusB(false)}
-              style={[
-                styles.btn,
-                styles.btnGhost,
-                hoverB && { opacity: 0.9 },
-                focusB && styles.focused,
-              ]}
-            >
-              <Text style={styles.btnGhostText}>Log in</Text>
-            </Pressable>
+          <View style={s.ctaRow}>
+            <Cta label="Start free" primary onPress={() => router.push("/(auth)/sign-up")} />
+            <Cta label="Log in" onPress={() => router.push("/(auth)/sign-in")} />
           </View>
+          <Text style={s.note}>Free for up to 3 units. No card needed.</Text>
         </View>
-        <Image
-          accessibilityLabel="Hero illustration showing property management"
-          source={require("@/assets/images/hero-illustration.webp")}
-          style={styles.illustration}
-          resizeMode="cover"
-        />
+        <View style={[s.stage, { height: stageH }, wide && { flex: 1, minWidth: 0 }]}>
+          <View style={s.blobA} />
+          <View style={s.blobB} />
+          <Phone
+            source={require("@/assets/images/units.png")}
+            width={phoneW}
+            label="Units screen"
+            style={{ position: "absolute", left: "50%", marginLeft: -phoneW * 1.0, top: 50, transform: [{ rotate: "-5deg" }] }}
+          />
+          <Phone
+            source={require("@/assets/images/home.png")}
+            width={phoneW}
+            label="Home screen with issues"
+            style={{ position: "absolute", left: "50%", marginLeft: -phoneW * 0.0, top: 0, transform: [{ rotate: "4deg" }] }}
+          />
+        </View>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { width: "100%", backgroundColor: "#fff" },
+function Cta({ label, onPress, primary }: { label: string; onPress: () => void; primary?: boolean }) {
+  const [h, setH] = useState(false);
+  const [f, setF] = useState(false);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      onHoverIn={() => setH(true)}
+      onHoverOut={() => setH(false)}
+      onFocus={() => setF(true)}
+      onBlur={() => setF(false)}
+      style={[
+        s.btn,
+        primary ? { backgroundColor: h ? m.accentDark : m.accent } : { borderWidth: 1.5, borderColor: h ? m.accent : m.washDeep },
+        f && focusRing,
+      ]}
+    >
+      <Text style={[s.btnText, { color: primary ? "#fff" : m.ink }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const s = StyleSheet.create({
+  wrapper: { width: "100%", backgroundColor: m.paper, overflow: "hidden" },
   content: {
-    maxWidth: 1200,
+    maxWidth: m.max,
     width: "100%",
     alignSelf: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 56,
-    gap: 24,
-    flexDirection: "column",
+    paddingHorizontal: 20,
+    paddingTop: 32,
+    paddingBottom: 72,
+    gap: 40,
   },
-  textCol: { gap: 12 },
-  eyebrow: { color: "#3b82f6", fontWeight: "700", letterSpacing: 0.6 },
-  title: { fontSize: 36, fontWeight: "800", color: "#111", lineHeight: 42 },
-  subtitle: { fontSize: 16, color: "#374151", lineHeight: 22 },
-  ctaRow: { flexDirection: "row", gap: 12, marginTop: 8 },
-  btn: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+  textCol: { gap: 22 },
+  title: { fontFamily: m.display, fontWeight: "800", color: m.ink, letterSpacing: -2 },
+  subtitle: { fontFamily: m.body, fontSize: 19, lineHeight: 29, color: m.inkSoft, maxWidth: 520 },
+  ctaRow: { flexDirection: "row", gap: 12, marginTop: 6, flexWrap: "wrap" },
+  btn: { paddingHorizontal: 26, paddingVertical: 15, borderRadius: 999, alignItems: "center" },
+  btnText: { fontFamily: m.body, fontWeight: "700", fontSize: 16 },
+  note: { fontFamily: m.body, fontSize: 14, color: m.inkMuted },
+  stage: { width: "100%" },
+  blobA: {
+    position: "absolute", left: "8%", right: "4%", top: 40, bottom: 0,
+    backgroundColor: m.wash, borderTopLeftRadius: 220, borderTopRightRadius: 40,
+    borderBottomLeftRadius: 40, borderBottomRightRadius: 220,
   },
-  focused: Platform.select({
-    web: { outlineWidth: 2, outlineColor: "#3b82f6", outlineStyle: "solid" },
-    default: {},
-  }),
-  btnPrimary: { backgroundColor: "#3b82f6" },
-  btnPrimaryText: { color: "#fff", fontWeight: "700" },
-  btnGhost: { borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#fff" },
-  btnGhostText: { color: "#111", fontWeight: "600" },
-  illustration: {
-    marginTop: 8,
-    width: "100%",
-    height: 220,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
+  blobB: {
+    position: "absolute", right: "2%", top: 10, width: 70, height: 70,
+    borderRadius: 35, backgroundColor: m.washDeep,
   },
 });

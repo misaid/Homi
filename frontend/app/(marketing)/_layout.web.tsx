@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@/lib/auth";
 import { Redirect, Stack } from "expo-router";
 
 export default function MarketingLayout() {

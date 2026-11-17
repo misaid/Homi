@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  btnPrimary: { backgroundColor: "#0a7ea4" },
+  btnPrimary: { backgroundColor: "#5b4fe0" },
   btnPrimaryText: { color: "#fff", fontWeight: "700" },
   btnSecondary: {
     backgroundColor: "#f0f0f0",
