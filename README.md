@@ -116,7 +116,7 @@ and lease document storage.
     <td width="25%"><img src="docs/images/unit-detail.png" alt="Unit detail with a large photo, address, rent and the assigned tenant"><br><sub><b>Unit</b>: photo, details, tenants.</sub></td>
     <td width="25%"><img src="docs/images/tenant-detail.png" alt="Tenant detail with call and email buttons and editable lease details"><br><sub><b>Tenant</b>: contact and lease.</sub></td>
     <td width="25%"><img src="docs/images/issue-detail.png" alt="Issue editor with status, unit and tenant pickers"><br><sub><b>Issue</b>: status, unit and tenant.</sub></td>
-    <td width="25%"><img src="docs/images/landing-mobile.png" alt="The landing page on a phone"><br><sub><b>Landing page</b>: responsive sizing.</sub></td>
+    <td width="25%"><img src="docs/images/landing-mobile.png" alt="The landing page on a phone"><br><sub><b>Landing</b>: responsive sizing.</sub></td>
   </tr>
 </table>
 
